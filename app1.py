@@ -36,9 +36,25 @@ WHAT CHANGED FROM THE OLD VERSION
    and rebuilds it automatically on startup — you don't have to
    delete anything by hand.
 ----------------------------------------------------------------
-LOCAL EMAIL TESTING
+SENDING REAL EMAIL (booking receipts + contact form)
+Create a file named  .env  next to this one:
+
+    MAIL_USERNAME=peak84726@gmail.com
+    MAIL_PASSWORD=your_16_character_gmail_app_password
+
+The app password comes from Google Account -> Security -> 2-Step
+Verification -> App passwords. A normal Gmail password will be
+rejected. With those two set, MAIL_SERVER/PORT/SENDER default to
+smtp.gmail.com:587 with TLS automatically.
+
+Contact-form messages always go to ENQUIRY_INBOX (peak84726@gmail.com)
+with Reply-To set to whoever wrote in, and the sender gets a short
+acknowledgement.
+
+LOCAL EMAIL TESTING (no credentials needed)
     python -m smtpd -c DebuggingServer -n localhost:1025
-If that isn't running, receipts are printed to this console.
+If that isn't running either, mail is printed to this console and
+the contact page says plainly that it could not be delivered.
 ================================================================
 """
 
@@ -105,6 +121,15 @@ app.config["MAIL_USE_TLS"] = os.environ.get("MAIL_USE_TLS", "1") != "0"
 
 UPI_PAYEE_VPA = "bookings@peak"
 UPI_PAYEE_NAME = "PEAK Treks"
+
+# Page photographs that live next to app.py and are served by Flask's static
+# mount (static_folder=".", static_url_path=""), so "/signin.jpg" resolves to
+# the file in this folder. Each has a remote fallback used only if the local
+# file is missing, so the page never renders with an empty box.
+AUTH_PHOTO_SIGNIN = "/signin.jpg"
+AUTH_PHOTO_SIGNUP = "/signup.jpg"
+CTA_PHOTO = "/booktrek.jpg"
+ERROR_PHOTO = "/error.jpg"
 
 GST_RATE = 0.05
 BOOKING_FEE = 49
@@ -348,8 +373,12 @@ class Enquiry(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False)
     email = db.Column(db.String(120), nullable=False)
+    phone = db.Column(db.String(30), default="")
     subject = db.Column(db.String(160), nullable=False)
     message = db.Column(db.Text, nullable=False)
+    # Whether the message actually left over SMTP. A false here means the row
+    # is the only copy, so it is worth being able to see that.
+    emailed = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=now_ist)
 
 
@@ -551,8 +580,139 @@ def generate_upi_qr_data_uri(amount, order_ref="PEAK-ORDER"):
 # ================================================================
 # EMAIL RECEIPT
 # ================================================================
-SUPPORT_EMAIL = "hello@peak-treks.test"
+# Every message sent from the Contact page is delivered to this address,
+# whoever the sender is. It is also the address shown on the site.
+ENQUIRY_INBOX = "peak84726@gmail.com"
+
+SUPPORT_EMAIL = ENQUIRY_INBOX
 SUPPORT_PHONE = "+91 80 4000 0000"
+
+
+def deliver(msg, label, text_body=""):
+    """Hand a built MIMEMultipart to the SMTP server named in the config and
+    report whether it actually left. Used by both the booking receipt and the
+    Contact page, so there is one place where mail delivery can go wrong.
+
+    With MAIL_USERNAME / MAIL_PASSWORD set (see the .env notes at the top of
+    this file) mail goes out for real. With neither set, it falls back to
+    localhost:1025 and, failing that, prints the message to the console so the
+    flow can still be demonstrated without a mail server."""
+    username = app.config.get("MAIL_USERNAME")
+    password = app.config.get("MAIL_PASSWORD")
+    try:
+        with smtplib.SMTP(app.config["MAIL_SERVER"], app.config["MAIL_PORT"], timeout=15) as server:
+            if username and password:
+                if app.config.get("MAIL_USE_TLS", True):
+                    server.starttls()
+                server.login(username, password)
+            server.send_message(msg)
+        print(f"[EMAIL] {label} sent to {msg['To']}.")
+        return True
+    except Exception as exc:
+        print(f"[EMAIL] {label} could not be sent ({exc}). Printing it instead:")
+        print("------ EMAIL (console fallback) ------")
+        print(f"To: {msg['To']}\nSubject: {msg['Subject']}\n{text_body}")
+        print("--------------------------------------")
+        return False
+
+
+def send_enquiry_email(enquiry):
+    """Contact-page message, delivered to ENQUIRY_INBOX. Reply-To is set to the
+    sender, so hitting reply in the inbox answers the person who wrote in."""
+    subject = f"[PEAK contact] {enquiry.subject} - {enquiry.name}"
+
+    text_body = (
+        f"New message from the PEAK contact form\n"
+        f"--------------------------------------\n"
+        f"Name:    {enquiry.name}\n"
+        f"Email:   {enquiry.email}\n"
+        f"Phone:   {enquiry.phone or 'not given'}\n"
+        f"Subject: {enquiry.subject}\n"
+        f"Sent:    {enquiry.created_at.strftime('%d %b %Y, %I:%M %p') if enquiry.created_at else ''} IST\n"
+        f"Ref:     ENQ-{enquiry.id}\n\n"
+        f"Message\n-------\n{enquiry.message}\n"
+    )
+
+    rows = "".join(
+        f'<tr><td style="padding:6px 16px 6px 0;color:#5b6570;font-size:13px;">{k}</td>'
+        f'<td style="padding:6px 0;color:#14171c;font-size:14px;font-weight:600;">{v}</td></tr>'
+        for k, v in [
+            ("Name", enquiry.name),
+            ("Email", enquiry.email),
+            ("Phone", enquiry.phone or "not given"),
+            ("Subject", enquiry.subject),
+            ("Reference", f"ENQ-{enquiry.id}"),
+        ]
+    )
+
+    html_body = f"""<html><body style="margin:0;padding:24px;background:#f4f3f0;
+      font-family:-apple-system,Segoe UI,Arial,sans-serif;">
+      <table width="100%" cellpadding="0" cellspacing="0" role="presentation"
+             style="max-width:620px;margin:0 auto;background:#fff;border:1px solid #e3e0da;border-radius:10px;">
+        <tr><td style="padding:26px 28px;">
+          <p style="margin:0 0 4px;font-size:12px;letter-spacing:1.4px;text-transform:uppercase;color:#5b6570;">
+            PEAK contact form</p>
+          <h1 style="margin:0 0 20px;font-size:21px;color:#14171c;">New enquiry</h1>
+          <table cellpadding="0" cellspacing="0" role="presentation">{rows}</table>
+          <div style="margin-top:22px;padding-top:18px;border-top:1px solid #e3e0da;">
+            <p style="margin:0 0 8px;font-size:12px;letter-spacing:1.4px;text-transform:uppercase;color:#5b6570;">
+              Message</p>
+            <p style="margin:0;font-size:15px;line-height:1.7;color:#14171c;white-space:pre-wrap;">{enquiry.message}</p>
+          </div>
+          <p style="margin:22px 0 0;font-size:13px;color:#5b6570;">
+            Reply to this email to answer {enquiry.name} directly.</p>
+        </td></tr>
+      </table></body></html>"""
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = app.config["MAIL_SENDER"]
+    msg["To"] = ENQUIRY_INBOX
+    msg["Reply-To"] = enquiry.email
+    msg.attach(MIMEText(text_body, "plain"))
+    msg.attach(MIMEText(html_body, "html"))
+
+    return deliver(msg, f"Enquiry ENQ-{enquiry.id}", text_body)
+
+
+def send_enquiry_ack(enquiry):
+    """Short acknowledgement to whoever wrote in, so the form does not feel
+    like it vanished into nothing. Failure here is not reported to the user -
+    the enquiry itself is already saved and delivered."""
+    subject = "We have your message - PEAK"
+    text_body = (
+        f"Hi {enquiry.name.split()[0] if enquiry.name else 'there'},\n\n"
+        f"Thanks for writing in. Your message reached us and we reply within one\n"
+        f"working day, usually sooner.\n\n"
+        f"Your reference is ENQ-{enquiry.id}. What you sent:\n\n"
+        f"Subject: {enquiry.subject}\n{enquiry.message}\n\n"
+        f"If it is urgent, call {SUPPORT_PHONE} on weekdays between 10am and 7pm.\n\n"
+        f"PEAK Adventures, Indiranagar, Bengaluru 560038\n"
+    )
+    html_body = f"""<html><body style="margin:0;padding:24px;background:#f4f3f0;
+      font-family:-apple-system,Segoe UI,Arial,sans-serif;">
+      <table width="100%" cellpadding="0" cellspacing="0" role="presentation"
+             style="max-width:560px;margin:0 auto;background:#fff;border:1px solid #e3e0da;border-radius:10px;">
+        <tr><td style="padding:28px;">
+          <h1 style="margin:0 0 14px;font-size:22px;color:#14171c;">We have your message</h1>
+          <p style="margin:0 0 14px;font-size:15px;line-height:1.7;color:#14171c;">
+            Thanks for writing in. We reply within one working day, usually sooner.
+            Your reference is <b>ENQ-{enquiry.id}</b>.</p>
+          <p style="margin:0 0 6px;font-size:12px;letter-spacing:1.4px;text-transform:uppercase;color:#5b6570;">
+            What you sent</p>
+          <p style="margin:0;font-size:14px;line-height:1.7;color:#14171c;white-space:pre-wrap;">{enquiry.message}</p>
+          <p style="margin:22px 0 0;font-size:13px;color:#5b6570;">
+            Urgent? Call {SUPPORT_PHONE}, weekdays 10am to 7pm.</p>
+        </td></tr>
+      </table></body></html>"""
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = app.config["MAIL_SENDER"]
+    msg["To"] = enquiry.email
+    msg.attach(MIMEText(text_body, "plain"))
+    msg.attach(MIMEText(html_body, "html"))
+    return deliver(msg, f"Acknowledgement for ENQ-{enquiry.id}", text_body)
 
 
 def email_image_for(item):
@@ -781,7 +941,7 @@ TEMPLATES["base.html"] = """
 <title>{% block title %}PEAK{% endblock %}</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&family=Outfit:wght@300..700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400..700&family=Plus+Jakarta+Sans:wght@300..800&display=swap" rel="stylesheet">
 <style>
 :root{
   /* ---------------------------------------------------------------
@@ -791,44 +951,47 @@ TEMPLATES["base.html"] = """
      Every component below reads from these tokens, so the palette can
      be retuned in one place without touching any page.
      --------------------------------------------------------------- */
-  --bg:#070a0f;
-  --bg-2:#0a0e15;
-  --surface:#111720;
-  --surface-2:#0c1119;
-  --surface-3:#171f2a;
-  --stone:#1b232f;
-  --fill:#161e28;
+  --bg:#07090c;
+  --bg-2:#0a0d11;
+  --surface:#11151b;
+  --surface-2:#0c1015;
+  --surface-3:#171c23;
+  --stone:#1b2027;
+  --fill:#161b21;
 
-  /* Alpine indigo: high contrast on the ink base, complementary to the
-     ember used for prices, and nowhere near neon. */
-  --brand:#8098ff;
-  --brand-dark:#6379f0;
-  --brand-light:#bcc7ff;
-  --brand-ink:#070b1c;
-  --brand-soft:rgba(128,152,255,.13);
+  /* ONE colour family only: white on near-black. Nothing is coloured.
+     Hierarchy is carried by SIZE, WEIGHT, OPACITY and BORDER strength,
+     never by hue, so the whole site reads as a single neutral system. */
+  --brand:#ffffff;
+  --brand-dark:#e8e8e8;
+  --brand-light:#ffffff;
+  --brand-ink:#0a0d12;
+  --brand-soft:rgba(255,255,255,.10);
 
-  --accent:#ff8f63;
-  --accent-soft:rgba(255,143,99,.14);
-  --green:#41d69b;
-  --red:#ff6f6f;
+  --accent:#ffffff;
+  --accent-soft:rgba(255,255,255,.10);
+  --green:#ffffff;
+  --red:#ffffff;
 
-  --text:#eaf1f8;
-  --text-2:#c8d4e0;
-  --muted:#8d9cad;
-  --line:rgba(255,255,255,.08);
-  --line-strong:rgba(255,255,255,.18);
+  --text:#f4f6f8;
+  --text-2:#c6cdd4;
+  --muted:#8b949e;
+
+  /* the single uniform hairline used on every button, box and panel */
+  --line:rgba(255,255,255,.22);
+  --line-strong:rgba(255,255,255,.34);
 
   --shadow-sm:0 1px 2px rgba(0,0,0,.45);
   --shadow:0 2px 6px rgba(0,0,0,.35),0 18px 44px rgba(0,0,0,.45);
   --shadow-lg:0 34px 80px rgba(0,0,0,.62);
-  --ring:0 0 0 1px rgba(128,152,255,.26);
-  --glow:0 0 0 1px rgba(128,152,255,.26),0 18px 46px rgba(128,152,255,.12);
+  --ring:0 0 0 1px rgba(255,255,255,.34);
+  --glow:0 0 0 1px rgba(255,255,255,.3),0 18px 46px rgba(255,255,255,.06);
 
   --r-sm:12px; --r-md:16px; --r-lg:22px; --r-xl:28px; --r-2xl:34px; --r-full:999px;
-  /* Bricolage Grotesque for display: a modern grotesque with real
-     character in the wide weights. Outfit carries the UI and body copy. */
-  --sans:'Outfit',system-ui,sans-serif;
-  --serif:'Bricolage Grotesque','Outfit',system-ui,sans-serif;
+  /* Plus Jakarta Sans carries the UI and body copy. Space Grotesk gives
+     headings a sharper, more distinctive display face. */
+  --sans:'Plus Jakarta Sans',system-ui,sans-serif;
+  --serif:'Space Grotesk','Plus Jakarta Sans',system-ui,sans-serif;
   --pad:clamp(20px,4vw,64px);
   --gap:clamp(22px,2vw,32px);
   --glass:rgba(255,255,255,.045);
@@ -839,13 +1002,16 @@ html{scroll-behavior:smooth;-webkit-text-size-adjust:100%;background:var(--bg);c
 body{font-family:var(--sans);color:var(--text);font-size:16.5px;line-height:1.7;font-weight:400;
   -webkit-font-smoothing:antialiased;overflow-x:hidden;
   background:
-    radial-gradient(1100px 620px at 8% -8%,rgba(128,152,255,.10),transparent 62%),
-    radial-gradient(900px 560px at 96% 4%,rgba(255,143,99,.07),transparent 60%),
+    radial-gradient(1100px 620px at 8% -8%,rgba(255,255,255,.05),transparent 62%),
+    radial-gradient(900px 560px at 96% 4%,rgba(255,255,255,.035),transparent 60%),
     var(--bg);
   background-attachment:fixed}
 a{color:inherit}
 img{max-width:100%;display:block}
-::selection{background:rgba(128,152,255,.3);color:#fff}
+/* 9) every photograph on the site fills the box it is given and is
+   anchored dead centre, so nothing is ever cropped off to one side. */
+img{object-fit:cover;object-position:center center}
+::selection{background:rgba(255,255,255,.26);color:#fff}
 :focus-visible{outline:2px solid var(--brand);outline-offset:3px;border-radius:6px}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 
@@ -859,10 +1025,10 @@ h4{font-size:17px;letter-spacing:-.3px}
 p{max-width:74ch}
 .lede{color:var(--text-2);font-size:18px;line-height:1.75;max-width:62ch}
 .small{font-size:13.5px;color:var(--muted);line-height:1.65}
-.kicker{display:inline-block;color:var(--accent);font-size:12.5px;font-weight:700;
-  letter-spacing:1.4px;text-transform:uppercase;margin-bottom:14px}
+.kicker{display:inline-block;color:var(--muted);font-size:12px;font-weight:700;
+  letter-spacing:2px;text-transform:uppercase;margin-bottom:14px}
 .serif-i{font-style:italic}
-.tint{color:var(--brand-light)}
+.tint{color:#fff;font-weight:700}
 
 /* ---------- layout ---------- */
 .shell{max-width:var(--shell);margin:0 auto;padding-left:var(--pad);padding-right:var(--pad);width:100%}
@@ -881,21 +1047,25 @@ p{max-width:74ch}
 .spacer{flex:1}
 
 /* ---------- buttons ---------- */
+/* 7) EVERY button carries the same 1px white hairline. The three variants
+   differ only in fill and text weight, never in colour. */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;padding:15px 30px;
-  border:1px solid transparent;border-radius:var(--r-sm);font:inherit;font-size:14.5px;font-weight:700;
+  border:1px solid var(--line-strong);border-radius:var(--r-sm);font:inherit;font-size:14.5px;font-weight:700;
   line-height:1.2;letter-spacing:.1px;text-decoration:none;cursor:pointer;
   transition:background .18s ease,color .18s ease,border-color .18s ease,box-shadow .18s ease,transform .18s ease}
-.btn--primary{background:linear-gradient(135deg,var(--brand-light),var(--brand));color:var(--brand-ink);
-  box-shadow:0 10px 28px rgba(128,152,255,.22)}
-.btn--primary:hover{transform:translateY(-1px);box-shadow:0 16px 38px rgba(128,152,255,.32)}
+.btn--primary{background:#fff;color:var(--brand-ink);border:1px solid #fff;font-weight:800;
+  box-shadow:0 10px 28px rgba(0,0,0,.45)}
+.btn--primary:hover{transform:translateY(-1px);background:#eef1f4;border-color:#eef1f4;
+  box-shadow:0 16px 38px rgba(0,0,0,.55)}
 .btn--ghost{background:var(--glass);border-color:var(--line-strong);color:var(--text)}
-.btn--ghost:hover{border-color:var(--brand);color:var(--brand);box-shadow:var(--ring)}
-.btn--outline{background:transparent;border-color:var(--brand);color:var(--brand)}
-.btn--outline:hover{background:var(--brand-soft);box-shadow:var(--ring)}
+.btn--ghost:hover{border-color:#fff;background:rgba(255,255,255,.12);box-shadow:var(--ring)}
+.btn--outline{background:transparent;border-color:var(--line-strong);color:var(--text)}
+.btn--outline:hover{background:rgba(255,255,255,.12);border-color:#fff;box-shadow:var(--ring)}
 .btn--sm{padding:11px 22px;font-size:13.5px}
 .btn--wide{width:100%}
-.btn--danger{background:none;border-color:var(--line);color:var(--muted);padding:9px 16px;font-size:12.5px;font-weight:600}
-.btn--danger:hover{border-color:var(--red);color:var(--red)}
+.btn--danger{background:none;border:1px solid var(--line);color:var(--muted);padding:9px 16px;
+  font-size:12.5px;font-weight:600}
+.btn--danger:hover{border-color:#fff;color:var(--text)}
 
 /* ---------- surfaces ---------- */
 .card{background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,0)),var(--surface);
@@ -906,10 +1076,12 @@ p{max-width:74ch}
 .pill{display:inline-flex;align-items:center;gap:6px;padding:7px 15px;border-radius:var(--r-full);
   font-size:12.5px;font-weight:600;letter-spacing:.1px;
   border:1px solid var(--line-strong);color:var(--text-2);background:rgba(255,255,255,.05)}
-.pill--muted{color:var(--muted)}
-.pill--brand{border-color:rgba(128,152,255,.4);color:var(--brand);background:var(--brand-soft)}
-.pill--ok{border-color:rgba(65,214,155,.38);color:var(--green);background:rgba(65,214,155,.12)}
-.pill--bad{border-color:rgba(255,111,111,.38);color:var(--red);background:rgba(255,111,111,.12)}
+.pill--muted{color:var(--muted);border-color:var(--line)}
+/* status pills: separated by weight and border strength, not by colour */
+.pill--brand{border-color:#fff;color:var(--text);background:rgba(255,255,255,.12);font-weight:700}
+.pill--ok{border-color:#fff;color:#fff;background:rgba(255,255,255,.16);font-weight:800}
+.pill--bad{border-color:var(--line);color:var(--muted);background:transparent;font-weight:600;
+  text-decoration:line-through}
 .divider{height:1px;background:var(--line);border:0;margin:32px 0}
 
 /* ---------- navbar ---------- */
@@ -917,37 +1089,38 @@ p{max-width:74ch}
   gap:20px;padding:0 var(--pad);background:rgba(8,11,17,.78);backdrop-filter:blur(18px) saturate(1.3);
   border-bottom:1px solid var(--line)}
 .brand{font-family:var(--serif);font-size:27px;font-weight:600;letter-spacing:.6px;text-decoration:none;color:var(--text)}
-.brand i{color:var(--brand);font-style:normal}
+.brand i{color:var(--text);font-style:normal}
 .nav-links{display:flex;align-items:center;gap:34px}
 .nav-links a.navlink{position:relative;color:var(--muted);text-decoration:none;font-size:14.5px;font-weight:500;
   padding:6px 0;transition:color .18s}
 .nav-links a.navlink::after{content:"";position:absolute;left:0;right:100%;bottom:0;height:2px;
-  background:var(--brand);box-shadow:0 0 12px rgba(128,152,255,.7);transition:right .22s ease}
+  background:#fff;transition:right .22s ease}
 .nav-links a.navlink:hover,.nav-links a.navlink.on{color:var(--text)}
 .nav-links a.navlink:hover::after,.nav-links a.navlink.on::after{right:0}
 .nav-tools{display:flex;align-items:center;gap:12px}
 .icon-btn{position:relative;display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border:1px solid var(--line-strong);
   border-radius:var(--r-sm);background:rgba(255,255,255,.04);color:var(--text);text-decoration:none;
   font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit;transition:border-color .18s,color .18s,background .18s}
-.icon-btn:hover{border-color:var(--brand);color:var(--brand);background:var(--brand-soft)}
+.icon-btn:hover{border-color:#fff;color:var(--text);background:rgba(255,255,255,.12)}
 .count{display:inline-flex;align-items:center;justify-content:center;min-width:19px;height:19px;padding:0 5px;
-  background:var(--accent);color:#170a04;border-radius:var(--r-full);font-size:11px;font-weight:800}
+  background:#fff;color:var(--brand-ink);border-radius:var(--r-full);font-size:11px;font-weight:800}
 .avatar{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;
-  background:linear-gradient(135deg,var(--brand),#a98bff);
-  border:0;color:var(--brand-ink);font-size:12.5px;font-weight:800;letter-spacing:.5px;cursor:pointer;font-family:inherit}
+  background:rgba(255,255,255,.12);border:1px solid var(--line-strong);
+  color:var(--text);font-size:12.5px;font-weight:800;letter-spacing:.5px;cursor:pointer;font-family:inherit}
 .menu-wrap{position:relative}
 .menu{display:none;position:absolute;top:52px;right:0;width:268px;background:var(--surface-3);
   border:1px solid var(--line-strong);border-radius:var(--r-lg);box-shadow:var(--shadow-lg);overflow:hidden;z-index:300}
 .menu.open{display:block}
 .menu a,.menu .menu-head{display:block;padding:15px 18px;text-decoration:none;font-size:13.5px;border-bottom:1px solid var(--line)}
 .menu a{color:var(--text);font-weight:500}
-.menu a:hover{background:var(--brand-soft);color:var(--brand)}
+.menu a:hover{background:rgba(255,255,255,.1);color:#fff}
 .menu .menu-head{color:var(--muted);font-size:12.5px;background:rgba(255,255,255,.03)}
 .menu a:last-child{border-bottom:0}
 .notif{width:350px;max-height:420px;overflow-y:auto}
 .notif .item{display:block;padding:16px 18px;border-bottom:1px solid var(--line);text-decoration:none;color:var(--text)}
 .notif .item:hover{background:rgba(255,255,255,.05)}
-.notif .item.unread{background:var(--brand-soft)}
+.notif .item.unread{background:rgba(255,255,255,.08)}
+.notif .item.unread b{font-weight:800}
 .notif .item b{display:block;font-size:13.5px;margin-bottom:4px}
 .notif .item span{font-size:12.5px;color:var(--muted);line-height:1.55}
 .notif .none{padding:30px;text-align:center;color:var(--muted);font-size:13.5px}
@@ -972,8 +1145,9 @@ p{max-width:74ch}
 .flash{display:flex;gap:12px;align-items:flex-start;padding:16px 18px;border-radius:var(--r-md);font-size:13.5px;
   line-height:1.55;background:var(--surface-3);color:var(--text);border:1px solid var(--line-strong);
   border-left:3px solid var(--brand);box-shadow:var(--shadow-lg)}
-.flash.success{border-left-color:var(--green)}
-.flash.error{border-left-color:var(--red)}
+/* success / error are told apart by border thickness, not colour */
+.flash.success{border-left-width:3px;border-left-color:#fff}
+.flash.error{border-left-width:6px;border-left-color:#fff}
 .flash button{background:none;border:0;color:var(--muted);cursor:pointer;font-size:16px;line-height:1;padding:0 2px}
 
 /* ---------- forms ---------- */
@@ -983,8 +1157,8 @@ p{max-width:74ch}
   border:1px solid var(--line-strong);border-radius:var(--r-sm);color:var(--text);font-family:inherit;
   font-size:15px;outline:none;transition:border-color .18s,box-shadow .18s,background .18s}
 .field textarea{min-height:150px;resize:vertical;line-height:1.6}
-.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--brand);
-  background:var(--surface);box-shadow:0 0 0 3px rgba(128,152,255,.14)}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:#fff;
+  background:var(--surface);box-shadow:0 0 0 3px rgba(255,255,255,.14)}
 .field input::placeholder,.field textarea::placeholder{color:#6d7c8d}
 .field select option{background:var(--surface-3);color:var(--text)}
 .field .hint{font-size:12.5px;color:var(--muted);margin-top:8px}
@@ -997,10 +1171,11 @@ p{max-width:74ch}
   background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,0)),var(--surface);
   border:1px solid var(--line);border-radius:var(--r-2xl);overflow:hidden;box-shadow:var(--shadow);
   transition:box-shadow .3s ease,transform .3s ease,border-color .3s ease}
-.trek-card:hover{transform:translateY(-6px);border-color:rgba(128,152,255,.34);
-  box-shadow:var(--shadow-lg),0 0 0 1px rgba(128,152,255,.18)}
+.trek-card:hover{transform:translateY(-6px);border-color:#fff;
+  box-shadow:var(--shadow-lg),0 0 0 1px rgba(255,255,255,.2)}
 .trek-card .shot{position:relative;display:block;aspect-ratio:16/10;overflow:hidden;background:var(--stone)}
-.trek-card .shot img{width:100%;height:100%;object-fit:cover;transition:transform .7s ease}
+.trek-card .shot img{width:100%;height:100%;object-fit:cover;object-position:center center;
+  transition:transform .7s ease}
 .trek-card:hover .shot img{transform:scale(1.06)}
 .trek-card .shot::after{content:"";position:absolute;inset:0;
   background:linear-gradient(180deg,rgba(7,10,15,.5) 0%,rgba(7,10,15,0) 42%,rgba(7,10,15,.55) 100%)}
@@ -1022,7 +1197,9 @@ p{max-width:74ch}
 .specs div:nth-child(2) b{font-size:14px;white-space:nowrap}
 .specs div:nth-child(3) b{white-space:nowrap}
 @media (max-width:520px){.specs b,.specs div:nth-child(2) b{white-space:normal}}
-.price{font-size:28px;font-weight:800;color:var(--accent);font-family:var(--sans);letter-spacing:-.8px}
+/* price: no longer orange. It stands out by being the largest, heaviest
+   number in its row, in plain white. */
+.price{font-size:29px;font-weight:800;color:#fff;font-family:var(--sans);letter-spacing:-.8px}
 .price sub{font-size:12px;color:var(--muted);font-weight:500;vertical-align:baseline}
 .card-foot{margin-top:auto;gap:14px;flex-wrap:nowrap}
 .card-foot .btn{white-space:nowrap}
@@ -1032,9 +1209,10 @@ p{max-width:74ch}
 .stat b{display:block;font-family:var(--serif);font-size:40px;letter-spacing:-1.2px;color:var(--text)}
 .stat span{font-size:13.5px;color:var(--muted)}
 .ticklist{list-style:none;display:grid;gap:13px}
+.ticklist + .kicker,.ticklist + h2,.ticklist + h3,.ticklist + h4{margin-top:clamp(26px,4vw,44px)}
 .ticklist li{position:relative;padding-left:26px;font-size:14.5px;line-height:1.65;color:var(--text-2)}
-.ticklist li::before{content:"";position:absolute;left:0;top:10px;width:8px;height:8px;border-radius:2px;background:var(--brand)}
-.ticklist.no li::before{background:#4b5765}
+.ticklist li::before{content:"";position:absolute;left:0;top:10px;width:8px;height:8px;border-radius:2px;background:#fff}
+.ticklist.no li::before{background:transparent;border:1px solid var(--line-strong);border-radius:2px}
 .ticklist.no li{color:var(--muted)}
 .empty{text-align:center;padding:clamp(60px,8vw,96px) 30px}
 .empty h2{margin-bottom:14px;font-size:30px}
@@ -1042,20 +1220,20 @@ p{max-width:74ch}
 .line{display:flex;justify-content:space-between;gap:18px;font-size:14.5px;color:var(--muted);margin-bottom:14px}
 .line b{color:var(--text);font-weight:600}
 .line--total{padding-top:18px;margin-top:10px;border-top:1px solid var(--line);font-size:19px;font-weight:700;color:var(--text)}
-.line--total b{color:var(--accent);font-size:22px}
+.line--total b{color:#fff;font-size:23px;font-weight:800}
 
 /* ---------- footer ---------- */
 footer{background:var(--surface-2);border-top:1px solid var(--line);color:var(--text-2);
   padding:clamp(60px,7vw,92px) 0 34px;margin-top:0}
 footer .brand{color:var(--text)}
-footer .brand i{color:var(--brand)}
+footer .brand i{color:var(--text)}
 footer .small{color:var(--muted)}
 .foot-grid{display:grid;grid-template-columns:1.8fr 1fr 1fr 1fr;gap:44px;
   padding-bottom:48px;border-bottom:1px solid var(--line)}
 .foot-grid h4{font-family:var(--sans);font-size:12.5px;font-weight:700;color:var(--text);
   letter-spacing:1.2px;text-transform:uppercase;margin-bottom:18px}
 .foot-grid a{display:block;color:var(--muted);text-decoration:none;font-size:14.5px;margin-bottom:12px;transition:color .18s}
-.foot-grid a:hover{color:var(--brand)}
+.foot-grid a:hover{color:#fff}
 .foot-bottom{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;padding-top:28px;
   font-size:13.5px;color:var(--muted)}
 @media (max-width:900px){.foot-grid{grid-template-columns:1fr 1fr;gap:34px}}
@@ -1158,8 +1336,6 @@ footer .small{color:var(--muted)}
         <h4>Company</h4>
         <a href="/about">About us</a>
         <a href="/contact">Contact</a>
-        <a href="/about#safety">Safety promise</a>
-        <a href="/about#leave-no-trace">Leave no trace</a>
       </div>
       <div>
         <h4>Your account</h4>
@@ -1204,36 +1380,35 @@ TEMPLATES["home.html"] = """
 .hero{position:relative;isolation:isolate;min-height:min(94vh,940px);display:flex;align-items:center;
   padding:clamp(88px,11vh,140px) var(--pad) clamp(60px,8vh,100px);overflow:hidden;
   border-bottom:1px solid var(--line)}
+/* 9) hero photo is centred and covers the whole band */
 .hero-bg{position:absolute;inset:0;z-index:-2;background-image:url("/top photo.jpg"),url("{{ hero_photo }}");
-  background-size:cover;background-position:center 38%;transform:scale(1.05);
-  filter:saturate(1.05) contrast(1.05)}
+  background-size:cover;background-position:center center;background-repeat:no-repeat;
+  filter:saturate(1.02) contrast(1.04)}
 .hero-veil{position:absolute;inset:0;z-index:-1;
   background:
-    linear-gradient(90deg,rgba(5,8,12,.95) 0%,rgba(5,8,12,.86) 34%,rgba(5,8,12,.46) 66%,rgba(5,8,12,.68) 100%),
-    linear-gradient(180deg,rgba(5,8,12,.88) 0%,rgba(5,8,12,.28) 34%,rgba(5,8,12,.55) 72%,var(--bg) 100%)}
+    linear-gradient(90deg,rgba(5,8,12,.25) 0%,rgba(5,8,12,.1) 34%,rgba(5,8,12,.46) 66%,rgba(5,8,12,.68) 100%),
+    linear-gradient(180deg,rgba(5,8,12,.25) 0%,rgba(5,8,12,.10) 34%,rgba(5,8,12,.55) 72%,var(--bg) 100%)}
 .hero-glow{position:absolute;inset:auto -10% -40% auto;width:60vw;height:60vw;z-index:-1;pointer-events:none;
-  background:radial-gradient(circle,rgba(128,152,255,.16),transparent 62%)}
+  background:radial-gradient(circle,rgba(255,255,255,.07),transparent 62%)}
 .hero-inner{position:relative;z-index:2;width:100%;max-width:var(--shell);margin:0 auto}
 .hero .eyebrow{display:inline-flex;align-items:center;gap:10px;padding:9px 18px;margin-bottom:26px;
-  border-radius:var(--r-full);font-size:12.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
-  color:var(--brand-light);background:rgba(128,152,255,.10);border:1px solid rgba(128,152,255,.32);
+  border-radius:var(--r-full);font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
+  color:#fff;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.34);
   backdrop-filter:blur(8px)}
-.hero .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--brand);
-  box-shadow:0 0 12px rgba(128,152,255,.9)}
+.hero .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:#fff}
 .hero .display{max-width:15ch;margin-bottom:24px;color:#fff;
   text-shadow:0 2px 40px rgba(0,0,0,.65),0 1px 3px rgba(0,0,0,.5)}
-.hero .display em{font-style:normal;color:var(--brand);
-  text-shadow:0 0 44px rgba(128,152,255,.45)}
+.hero .display em{font-style:normal;color:#fff}
 .hero p.sub{max-width:52ch;color:#dbe6ef;font-size:clamp(17px,1.35vw,20px);line-height:1.7;margin-bottom:38px;
   text-shadow:0 1px 18px rgba(0,0,0,.7)}
-.hero .btn--ghost{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.4);color:#fff;
+.hero .btn--ghost{background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.75);color:#fff;
   backdrop-filter:blur(8px)}
 .hero .btn--ghost:hover{background:rgba(255,255,255,.16);border-color:#fff;color:#fff}
 .hero-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:clamp(18px,2vw,30px);
   margin-top:clamp(44px,6vh,72px);padding:clamp(22px,2.2vw,30px) clamp(24px,2.6vw,38px);
   border:1px solid rgba(255,255,255,.14);border-radius:var(--r-xl);
   background:rgba(9,13,19,.52);backdrop-filter:blur(16px);box-shadow:var(--shadow-lg)}
-.hero-stats .stat b{color:#fff;font-size:clamp(30px,2.6vw,42px)}
+.hero-stats .stat b{color:#fff;font-size:clamp(28px,2.4vw,40px)}
 .hero-stats .stat span{color:#a9b8c6;font-size:13px}
 .hero-scroll{position:absolute;left:50%;bottom:26px;transform:translateX(-50%);z-index:2;
   color:#8fa0b0;font-size:11.5px;letter-spacing:2px;text-transform:uppercase;text-decoration:none}
@@ -1250,14 +1425,14 @@ TEMPLATES["home.html"] = """
   border:1px solid var(--line);border-radius:var(--r-xl);box-shadow:var(--shadow)}
 .step::before{counter-increment:s;content:counter(s);position:absolute;top:-21px;left:34px;width:42px;height:42px;
   display:grid;place-items:center;border-radius:50%;
-  background:linear-gradient(135deg,var(--brand-light),var(--brand));color:var(--brand-ink);
-  font-weight:800;font-size:15px;box-shadow:0 10px 24px rgba(128,152,255,.28)}
+  background:#fff;border:1px solid #fff;color:var(--brand-ink);
+  font-weight:800;font-size:15px;box-shadow:0 10px 24px rgba(0,0,0,.5)}
 .step h3{font-size:21px;margin:0 0 12px}
 .step p{color:var(--text-2);font-size:14.5px;line-height:1.7}
 .quote{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-xl);
   padding:36px 32px;box-shadow:var(--shadow);position:relative;overflow:hidden}
 .quote::before{content:"";position:absolute;top:0;left:0;right:0;height:2px;
-  background:linear-gradient(90deg,var(--brand),transparent)}
+  background:linear-gradient(90deg,rgba(255,255,255,.75),transparent)}
 .quote p{font-family:var(--serif);font-size:21px;line-height:1.5;letter-spacing:-.5px;margin-bottom:26px;color:var(--text)}
 .quote .who{display:flex;align-items:center;gap:12px}
 .quote .who .avatar{width:38px;height:38px;font-size:13px}
@@ -1267,15 +1442,17 @@ TEMPLATES["home.html"] = """
   border:1px solid var(--line);border-radius:var(--r-xl);overflow:hidden}
 .season div{background:var(--surface);padding:34px 30px;transition:background .25s}
 .season div:hover{background:var(--surface-3)}
-.season h4{font-family:var(--serif);font-size:22px;margin-bottom:12px;color:var(--brand-light)}
+.season h4{font-family:var(--serif);font-size:22px;margin-bottom:12px;color:#fff;font-weight:700}
 .season p{font-size:14px;line-height:1.7;color:var(--text-2)}
+/* 8) "Book a weekend departure" panel now uses booktrek.jpg, centred and
+   covering the full box, behind a readable scrim. 7) 1px white hairline. */
 .cta{position:relative;margin:0 var(--pad) clamp(70px,8vw,120px);padding:clamp(64px,9vw,120px) 34px;
   border-radius:var(--r-2xl);text-align:center;
   border:1px solid var(--line-strong);overflow:hidden;isolation:isolate;
-  background-image:linear-gradient(135deg,rgba(5,8,12,.9),rgba(5,8,12,.68)),url("{{ cta_photo }}");
-  background-size:cover;background-position:center;box-shadow:var(--shadow-lg)}
-.cta::after{content:"";position:absolute;inset:auto -20% -60% -20%;height:70%;z-index:-1;
-  background:radial-gradient(circle,rgba(128,152,255,.18),transparent 65%)}
+  background-image:linear-gradient(180deg,rgba(5,7,10,.62),rgba(5,7,10,.78)),
+                   url("{{ cta_photo }}"),url("{{ cta_photo_fallback }}");
+  background-size:cover;background-position:center center;background-repeat:no-repeat;
+  box-shadow:var(--shadow-lg)}
 .cta h2{max-width:20ch;margin:0 auto 16px;color:#fff}
 .cta p{color:#d6e2ec;font-size:17px;max-width:54ch;margin:0 auto 38px}
 {% endblock %}
@@ -1286,24 +1463,61 @@ TEMPLATES["home.html"] = """
   <div class="hero-veil"></div>
   <div class="hero-glow"></div>
   <div class="hero-inner">
-    <span class="eyebrow"><span class="dot"></span>{{ trek_count }} trails &middot; departures every weekend</span>
-    <h1 class="display">Guided treks across <em>Karnataka</em>.</h1>
+    <span class="eyebrow"><span class="dot"></span>Departures every Saturday and Sunday</span>
+    <h1 class="display">Some weekends need a little altitude.</h1>
     <p class="sub">
-      Six routes through the Western Ghats and the granite country west of Bengaluru.
-      Permits, guides and group logistics are handled; you turn up with the right shoes.
+      Guided weekend treks in Karnataka. {{ trek_count }} trails, batches capped at fifteen, two guides
+      on every departure, and permits and transport already in the price.
     </p>
     <div class="row">
       <a href="/treks" class="btn btn--primary">Browse treks</a>
       <a href="#how" class="btn btn--ghost">How booking works</a>
+      <a href="#grades" class="btn btn--ghost">Which grade suits me</a>
     </div>
+
     <div class="hero-stats">
-      <div class="stat"><b>{{ trek_count }}</b><span>Trails on offer</span></div>
-      <div class="stat"><b>{{ trekker_count }}+</b><span>Trekkers taken out</span></div>
-      <div class="stat"><b>4.8</b><span>Average trip rating</span></div>
-      <div class="stat"><b>0</b><span>Trips run without a lead guide</span></div>
+      <div class="stat"><b>{{ trek_count }}</b><span>Trails running this season</span></div>
+      <div class="stat"><b>{{ trekker_count }}+</b><span>Trekkers taken out since 2021</span></div>
+      <div class="stat"><b>15</b><span>Maximum batch size</span></div>
+      <div class="stat"><b>2</b><span>Guides on every departure</span></div>
     </div>
   </div>
   <a href="#how" class="hero-scroll">Scroll</a>
+</section>
+
+<section class="section section--tight section--surface">
+  <div class="shell">
+    <div class="head" style="max-width:none;margin-bottom:26px">
+      <p class="kicker">Start here</p>
+      <h2>Booking a trek takes four steps</h2>
+      <p class="lede" style="margin-top:12px">
+        Everything happens on this site. No phone calls, no deposit over UPI to a stranger, no
+        WhatsApp group you have to join before you know the price.
+      </p>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <h3>Pick a trail</h3>
+        <p>Each trek page lists the real distance, the maximum altitude, where the walk starts and
+          where it ends, and an hour-by-hour plan for the day. Read the grade before the price.</p>
+      </div>
+      <div class="step">
+        <h3>Choose a weekend</h3>
+        <p>Pick a departure date and the number of trekkers in your group. Slots are checked against
+          that trail's permit quota before the booking is confirmed.</p>
+      </div>
+      <div class="step">
+        <h3>Pay online</h3>
+        <p>Card or UPI. The price on the page is the price you pay, including GST, the booking fee,
+          forest permits and gate fees. Nothing is collected at the trailhead.</p>
+      </div>
+      <div class="step">
+        <h3>Get your brief</h3>
+        <p>A receipt arrives immediately. Two days before departure you get the pickup point, the
+          reporting time, your guide's number and a packing list for that specific trail.</p>
+      </div>
+    </div>
+  </div>
 </section>
 
 <section class="section">
@@ -1311,7 +1525,7 @@ TEMPLATES["home.html"] = """
     <div class="head row row--between" style="max-width:none;align-items:flex-end">
       <div>
         <p class="kicker">This season</p>
-        <h2>Treks currently running</h2>
+        <h2>TREKS</h2>
         <p class="lede" style="margin-top:12px">
           Saturday and Sunday departures, each with a lead guide and a sweep guide.
         </p>
@@ -1325,33 +1539,7 @@ TEMPLATES["home.html"] = """
   </div>
 </section>
 
-<section class="section section--surface" id="how">
-  <div class="shell">
-    <div class="head head--center">
-      <p class="kicker">Three steps</p>
-      <h2>How booking works</h2>
-    </div>
-    <div class="steps">
-      <div class="step">
-        <h3>Pick a date</h3>
-        <p>Open any trek, choose one of the upcoming weekend slots and say how many of you are coming.
-           Prices are per person, and what you see is what you pay.</p>
-      </div>
-      <div class="step">
-        <h3>Pay securely</h3>
-        <p>Card or UPI, both on a sandbox gateway for this build. Your booking reference is generated
-           before payment, so nothing is lost if a payment drops.</p>
-      </div>
-      <div class="step">
-        <h3>Get your brief</h3>
-        <p>A receipt lands in your inbox straight away. Two days before the trek we send the pickup
-           point, timings and a packing reminder.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section class="section">
+<section class="section" id="how">
   <div class="shell">
     <div class="head">
       <p class="kicker">How we operate</p>
@@ -1363,23 +1551,76 @@ TEMPLATES["home.html"] = """
     <div class="grid g-4">
       <div class="card">
         <h3>Graded honestly</h3>
-        <p class="small" style="margin-top:10px">Savandurga is marked difficult because it is. No trail is
-          sold as easier than it walks, so you can judge your own fitness.</p>
+        <p class="small" style="margin-top:10px">Every trail is re-walked at the start of a season, and the
+          grade comes from that walk, not a brochure. Savandurga is marked difficult because the granite is
+          loose and exposed in three sections; if monsoon damage or a landslide changes a route, the grade is
+          updated before the next batch goes out, not after someone gets caught out by it.</p>
       </div>
       <div class="card">
         <h3>Capped group size</h3>
-        <p class="small" style="margin-top:10px">Between six and fifteen trekkers per batch, always with a lead
-          at the front and a sweep at the back.</p>
+        <p class="small" style="margin-top:10px">Between six and fifteen trekkers per batch, with a lead
+          guide at the front and a sweep guide at the back regardless of group size — never just one guide.
+          Both carry a first-aid kit and a whistle, and headcounts are taken at every rest point and trail
+          junction, not only at the start and the end.</p>
       </div>
       <div class="card">
         <h3>Permits sorted</h3>
-        <p class="small" style="margin-top:10px">Forest department entries, eco-tourism slots and gate fees are
-          arranged before the day, and included in the price.</p>
+        <p class="small" style="margin-top:10px">Kudremukh and Kumara Parvatha sit inside reserve forest, so
+          entries need a forest department permit and a capped daily quota, arranged in advance using the ID
+          details from your booking. Savandurga and Skandagiri need only a gate fee, paid at the base. Either
+          way, it's in the price you see — nothing extra to queue for or pay at the checkpost.</p>
       </div>
       <div class="card">
         <h3>Leave no trace</h3>
-        <p class="small" style="margin-top:10px">Every batch carries its waste back down. We hand out a bag at the
-          base and check it at the end.</p>
+        <p class="small" style="margin-top:10px">Every trekker gets a waste bag at the base, and it's checked
+          at the end, not just handed out — wrappers, peels and everything else that went up comes back down.
+          No cooking fires or single-use plastic on any of our routes, and rest stops are chosen away from
+          water sources so run-off stays clean for whoever's downstream.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="grades">
+  <div class="shell">
+    <div class="head">
+      <p class="kicker">Grading</p>
+      <h2>What easy, moderate and difficult mean here</h2>
+      <p class="lede" style="margin-top:12px">
+        A grade is about the terrain and the exposure, not only the distance. A short trek can be
+        graded difficult, and a long one can be fine for a first-timer.
+      </p>
+    </div>
+    <div class="grid g-3">
+      <div class="card">
+        <h3>Easy</h3>
+        <p class="small" style="margin-top:10px">Under 6 km, a marked path the whole way, and no section
+          where a slip matters. If you can walk for two hours without stopping, you can do these. Nandi
+          Hills and the shorter sunrise walks sit here. Good for a first trek, for children over ten,
+          and for anyone coming back after a long gap.</p>
+        <div class="row" style="margin-top:18px">
+          <span class="pill">2 to 4 hours</span><span class="pill pill--muted">No scrambling</span>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Moderate</h3>
+        <p class="small" style="margin-top:10px">6 to 12 km with a continuous climb, some loose rock and
+          a few short stretches where you use your hands. Skandagiri and Kodachadri are here. You want
+          shoes with real grip and the ability to keep walking uphill for three hours. Most of our
+          trekkers book this grade.</p>
+        <div class="row" style="margin-top:18px">
+          <span class="pill">4 to 7 hours</span><span class="pill pill--muted">Some exposure</span>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Difficult</h3>
+        <p class="small" style="margin-top:10px">Long days, sustained steep ground, exposed rock and no
+          quick way down once you are committed. Savandurga and Kumara Parvatha are graded this way.
+          You need prior trekking experience and honest fitness. We will say no at the briefing if the
+          group is not ready for it.</p>
+        <div class="row" style="margin-top:18px">
+          <span class="pill">7 to 12 hours</span><span class="pill pill--muted">Experience needed</span>
+        </div>
       </div>
     </div>
   </div>
@@ -1387,9 +1628,46 @@ TEMPLATES["home.html"] = """
 
 <section class="section section--surface">
   <div class="shell">
+    <div class="pair">
+      <div>
+        <p class="kicker">What you get</p>
+        <h2 style="margin-bottom:18px">Included in every price on this site</h2>
+        <ul class="ticklist">
+          <li>A lead guide at the front and a sweep guide at the back, on every single departure</li>
+          <li>Forest department permits where the trail needs one, and gate fees where it does not</li>
+          <li>Transport from the Bengaluru pickup point to the base and back, on the trails we run that way</li>
+          <li>Breakfast or a packed meal, and drinking water refills at the planned stops</li>
+          <li>A first-aid kit with both guides, and a route plan left with our office before you set off</li>
+          <li>GST, the booking fee and your receipt, with nothing collected at the trailhead</li>
+        </ul>
+      </div>
+      <div>
+      <br><br>
+        <p class="kicker">What to bring</p>
+        <h2 style="margin-bottom:18px">Carried by you</h2>
+        <ul class="ticklist no">
+          <li>Shoes with a real grip sole. Running shoes are the single most common reason someone turns back</li>
+          <li>Two litres of water minimum, three on the exposed granite trails in summer</li>
+          <li>A headtorch for the night starts, with the batteries checked before you leave home</li>
+          <li>A windproof layer. The top is always colder than the base, even in March</li>
+          <li>A government photo ID, which is required at every forest checkpost</li>
+          <li>Personal medication, and a word to your guide at the briefing about anything relevant</li>
+        </ul>
+        
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="shell">
     <div class="head">
       <p class="kicker">Planning</p>
       <h2>Choosing a season</h2>
+      <p class="lede" style="margin-top:12px">
+        The same hill is a different trek in July and in January. If your dates are flexible, this is
+        the part worth reading before you pick a weekend.
+      </p>
     </div>
     <div class="season">
       <div><h4>June to September</h4><p>Peak monsoon. Streams run hard, leeches are everywhere and visibility
@@ -1430,10 +1708,56 @@ TEMPLATES["home.html"] = """
   </div>
 </section>
 
+<section class="section section--surface">
+  <div class="shell">
+    <div class="head">
+      <p class="kicker">Before you book</p>
+      <h2>The questions we get most</h2>
+    </div>
+    <div class="grid g-2">
+      <div class="panel">
+        <h4 style="margin-bottom:10px">I have never trekked before. Where do I start?</h4>
+        <p class="small">An easy or moderate grade, and ideally a trek with a daylight start. Skandagiri
+          is a night climb, which is beautiful but is not the gentlest first outing. Tell us at booking
+          and we will say plainly whether the trail you picked is the right one.</p>
+      </div>
+      <div class="panel">
+        <h4 style="margin-bottom:10px">Can I change my date?</h4>
+        <p class="small">Yes, up to 72 hours before departure, subject to a slot being free on the new
+          date. Write to us from the email you booked with and mention the booking reference on your
+          receipt.</p>
+      </div>
+      <div class="panel">
+        <h4 style="margin-bottom:10px">What happens if the weather turns?</h4>
+        <p class="small">We call it the evening before and tell everyone in the batch at the same time.
+          If we cancel a departure, you choose between a full refund and a free move to another date.
+          A guide can also stop a group mid-trail, and that call is final.</p>
+      </div>
+      <div class="panel">
+        <h4 style="margin-bottom:10px">Is it safe to trek solo with you?</h4>
+        <p class="small">Most people who book do it alone. You are in a batch of six to fifteen with two
+          guides, and headcounts are taken at every rest point and trail junction rather than only at
+          the start and the finish.</p>
+      </div>
+      <div class="panel">
+        <h4 style="margin-bottom:10px">Are there age limits?</h4>
+        <p class="small">Ten and above for easy trails with an adult, sixteen and above for the difficult
+          grades. There is no upper limit. What matters is being able to walk uphill for the number of
+          hours listed on the trek page.</p>
+      </div>
+      <div class="panel">
+        <h4 style="margin-bottom:10px">Do you take group or private bookings?</h4>
+        <p class="small">Ten or more trekkers, or a private batch on a date of your choosing, is quoted
+          separately. Mention it on the contact form and we will come back with dates and a price.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
 <section class="cta">
   <h2>Book a weekend departure</h2>
-  <p>Choose a trail and a date. Confirmation, permits and the pre-trek brief follow by email.</p>
-  <a href="/treks" class="btn btn--primary">See available treks</a>
+  <p>Pick a trail, pick a weekend, and we will handle the permits, the transport and the guiding.</p>
+  <a href="/treks" class="btn btn--primary" style="margin-top:20px">See available treks</a>
 </section>
 {% endblock %}
 """
@@ -1475,7 +1799,7 @@ TEMPLATES["treks.html"] = """
 .page-head{position:relative;overflow:hidden;padding:clamp(52px,6.5vw,88px) 0 clamp(34px,4vw,50px);
   border-bottom:1px solid var(--line);background:var(--surface-2)}
 .page-head::before{content:"";position:absolute;inset:-60% 55% auto -10%;height:140%;pointer-events:none;
-  background:radial-gradient(circle,rgba(128,152,255,.14),transparent 62%)}
+  background:radial-gradient(circle,rgba(255,255,255,.06),transparent 62%)}
 .page-head .shell{position:relative;z-index:1}
 .filters{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,1.3fr) auto;gap:18px;align-items:end;
   margin-top:34px;width:100%;
@@ -1549,9 +1873,11 @@ TEMPLATES["trek.html"] = """
   background:#05070a;aspect-ratio:21/9;min-height:clamp(400px,56vh,720px);max-height:88vh}
 .t-frame .blur{position:absolute;inset:-8%;background-size:cover;background-position:center;
   filter:blur(46px) saturate(.85) brightness(.4);transform:scale(1.15)}
-/* object-fit:contain keeps the whole photograph on screen; the blurred copy
-   behind it fills whatever the frame ratio leaves over. */
-.t-frame .shot{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;object-position:center}
+/* 4) The hero photo is now centred in its frame instead of being anchored
+   low and to one side, and 9) it covers the frame edge to edge with no
+   scale-up, so nothing drifts off to the left. */
+.t-frame .shot{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+  object-position:center center;transform:none}
 .t-frame .scrim{position:absolute;inset:0;pointer-events:none;
   background:linear-gradient(180deg,rgba(5,7,10,.66) 0%,rgba(5,7,10,.06) 26%,
                              rgba(5,7,10,.5) 58%,rgba(5,7,10,.95) 100%)}
@@ -1559,7 +1885,7 @@ TEMPLATES["trek.html"] = """
 .t-copy .inner{max-width:var(--shell);margin:0 auto}
 .t-copy h1{color:#fff;font-size:clamp(38px,5.6vw,84px);letter-spacing:-2.4px;font-weight:700;
   text-shadow:0 2px 34px rgba(0,0,0,.72)}
-.t-copy .where{color:var(--brand-light);font-weight:600;font-size:13px;letter-spacing:1.4px;
+.t-copy .where{color:#fff;font-weight:700;font-size:12.5px;letter-spacing:2px;
   text-transform:uppercase;margin-bottom:10px}
 .t-copy p{max-width:64ch;color:#dbe6ef;margin-top:14px;font-size:clamp(15px,1.15vw,18px);
   text-shadow:0 1px 14px rgba(0,0,0,.72)}
@@ -1568,29 +1894,34 @@ TEMPLATES["trek.html"] = """
 .t-copy .row{margin-top:20px}
 .crumbs{font-size:12.5px;color:#a9b8c6;margin-bottom:14px}
 .crumbs a{color:#a9b8c6;text-decoration:none}
-.crumbs a:hover{color:var(--brand)}
+.crumbs a:hover{color:#fff}
 @media (max-width:820px){
   .t-frame{aspect-ratio:4/3;min-height:0;max-height:none}
   .t-frame .scrim{background:linear-gradient(180deg,rgba(5,7,10,.3),rgba(5,7,10,.04))}
   .t-copy{position:static;padding:26px var(--pad) 0}
   .t-copy h1,.t-copy p{text-shadow:none}
-  .t-copy .where{color:var(--brand)}
+  .t-copy .where{color:var(--text)}
   .t-copy p{color:var(--text-2)}
   .t-copy .pill{background:rgba(255,255,255,.05)}
 }
 
-/* ---------- key facts: one continuous row, no dead space ---------- */
-.facts{display:flex;flex-wrap:wrap;gap:1px;background:var(--line);
+/* ---------- 3) key facts: read as a list of points, one below the other,
+   label on the left and value on the right, instead of a single wide
+   strip of columns. 7) one white hairline around the box and between
+   every point. ---------- */
+.facts{display:block;background:var(--surface);
   border:1px solid var(--line);border-radius:var(--r-xl);overflow:hidden;
   margin-bottom:clamp(40px,4.6vw,64px);box-shadow:var(--shadow)}
-/* flex-grow on every cell means a wrapped row still fills the width,
-   so there are never empty cells or large gaps between values. */
-.facts div{flex:1 0 auto;background:var(--surface);padding:18px clamp(16px,1.5vw,26px)}
-.facts span{display:block;font-size:10.5px;letter-spacing:1.1px;text-transform:uppercase;
-  color:var(--muted);margin-bottom:6px;white-space:nowrap}
-.facts b{font-size:15.5px;font-weight:600;line-height:1.35;color:var(--text);white-space:nowrap}
-@media (max-width:640px){.facts div{flex:1 1 140px;min-width:0;padding:16px 18px}
-  .facts b{font-size:14.5px;white-space:normal}}
+.facts div{display:grid;grid-template-columns:230px minmax(0,1fr);align-items:baseline;
+  gap:18px;padding:16px clamp(20px,2vw,30px);border-top:1px solid var(--line)}
+.facts div:first-child{border-top:0}
+.facts span{display:block;font-size:11px;letter-spacing:1.6px;text-transform:uppercase;
+  color:var(--muted);font-weight:700}
+.facts b{font-size:16px;font-weight:700;line-height:1.4;color:var(--text)}
+@media (max-width:640px){
+  .facts div{grid-template-columns:1fr;gap:4px;padding:15px 18px}
+  .facts b{font-size:15px}
+}
 
 .layout{display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:clamp(36px,4vw,68px);align-items:start}
 @media (max-width:1060px){.layout{grid-template-columns:1fr}}
@@ -1601,26 +1932,31 @@ TEMPLATES["trek.html"] = """
 .prose p{color:var(--text-2);font-size:16px;line-height:1.85;margin-bottom:18px;max-width:72ch}
 .day{display:grid;grid-template-columns:140px 1fr;gap:26px;padding:24px 0;border-top:1px solid var(--line)}
 .day:last-child{border-bottom:1px solid var(--line)}
-.day .when{font-family:var(--serif);font-size:16px;font-weight:600;color:var(--brand)}
+.day .when{font-family:var(--serif);font-size:16px;font-weight:700;color:var(--text)}
 .day h4{font-family:var(--sans);font-size:15.5px;font-weight:700;margin-bottom:8px}
 .day p{color:var(--text-2);font-size:15px;line-height:1.7}
 @media (max-width:620px){.day{grid-template-columns:1fr;gap:6px}}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:var(--gap)}
 @media (max-width:820px){.two{grid-template-columns:1fr}}
 .pair{display:grid;grid-template-columns:1.05fr 1fr;gap:clamp(30px,3.4vw,58px);align-items:start}
-@media (max-width:1000px){.pair{grid-template-columns:1fr}}
+/* 3) Once the two columns stack, the second heading would otherwise sit right
+   under the last bullet of the first list. Give it real separation. */
+@media (max-width:1000px){
+  .pair{grid-template-columns:1fr}
+  .pair > div + div{margin-top:clamp(26px,5vw,46px)}
+}
 .faq-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 clamp(32px,4vw,64px)}
 @media (max-width:900px){.faq-grid{grid-template-columns:1fr}}
 .panel--tall{height:100%}
-.p-label{font-family:var(--sans);font-size:11.5px;letter-spacing:1.2px;text-transform:uppercase;
-  font-weight:700;margin-bottom:14px;color:var(--brand)}
+.p-label{font-family:var(--sans);font-size:11.5px;letter-spacing:1.6px;text-transform:uppercase;
+  font-weight:700;margin-bottom:14px;color:var(--text)}
 .p-label--muted{color:var(--muted)}
 
 /* ---------- photo carousel (detail page only) ---------- */
 .carousel{position:relative;aspect-ratio:16/9;max-height:78vh;overflow:hidden;
-  border-radius:var(--r-2xl);border:1px solid var(--line);background:#05070a;box-shadow:var(--shadow-lg)}
+  border-radius:var(--r-2xl);border:1px solid var(--line-strong);background:#05070a;box-shadow:var(--shadow-lg)}
 .carousel .frames{position:absolute;inset:0}
-.carousel .frames img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+.carousel .frames img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center center;
   opacity:0;transition:opacity .5s ease}
 .carousel .frames img.on{opacity:1}
 .carousel::after{content:"";position:absolute;inset:0;pointer-events:none;
@@ -1630,14 +1966,14 @@ TEMPLATES["trek.html"] = """
   display:grid;place-items:center;font-family:inherit;font-size:26px;line-height:1;
   color:var(--text);background:rgba(9,13,19,.62);border:1px solid rgba(255,255,255,.24);
   backdrop-filter:blur(12px);transition:background .18s,border-color .18s,color .18s,transform .18s}
-.cbtn:hover{background:var(--brand);border-color:var(--brand);color:var(--brand-ink)}
+.cbtn:hover{background:#fff;border-color:#fff;color:var(--brand-ink)}
 .cbtn:active{transform:translateY(-50%) scale(.94)}
 .cbtn.prev{left:clamp(14px,1.6vw,26px)}
 .cbtn.next{right:clamp(14px,1.6vw,26px)}
 .cdots{position:absolute;left:0;right:0;bottom:18px;z-index:3;display:flex;justify-content:center;gap:9px}
 .cdots span{width:8px;height:8px;border-radius:50%;cursor:pointer;background:rgba(255,255,255,.34);
   transition:background .2s,transform .2s}
-.cdots span.on{background:var(--brand);transform:scale(1.3)}
+.cdots span.on{background:#fff;transform:scale(1.3)}
 .ccount{position:absolute;right:clamp(14px,1.6vw,26px);top:clamp(14px,1.6vw,26px);z-index:3;
   padding:7px 14px;border-radius:var(--r-full);font-size:12.5px;font-weight:600;color:#eaf1f8;
   background:rgba(9,13,19,.62);border:1px solid rgba(255,255,255,.2);backdrop-filter:blur(10px)}
@@ -1647,7 +1983,7 @@ details.faq{border-bottom:1px solid var(--line);padding:22px 0}
 details.faq summary{cursor:pointer;font-weight:600;font-size:15.5px;list-style:none;display:flex;
   justify-content:space-between;gap:14px;color:var(--text)}
 details.faq summary::-webkit-details-marker{display:none}
-details.faq summary::after{content:"+";color:var(--brand);font-size:20px;line-height:1}
+details.faq summary::after{content:"+";color:var(--text);font-size:20px;line-height:1}
 details.faq[open] summary::after{content:"\\2013"}
 details.faq p{color:var(--text-2);font-size:14.5px;margin-top:12px;max-width:66ch}
 
@@ -1665,15 +2001,15 @@ details.faq p{color:var(--text-2);font-size:14.5px;margin-top:12px;max-width:66c
 .dates label{display:block}
 .dates span{display:block;padding:12px 16px;border:1px solid var(--line-strong);border-radius:var(--r-sm);
   background:var(--surface-2);font-size:13.5px;font-weight:600;color:var(--text-2);cursor:pointer;transition:.15s}
-.dates span:hover{border-color:var(--brand);color:var(--brand)}
-.dates input:checked + span{border-color:var(--brand);background:var(--brand);color:var(--brand-ink);
-  box-shadow:0 8px 22px rgba(128,152,255,.25)}
-.dates input:focus-visible + span{outline:2px solid var(--brand);outline-offset:2px}
+.dates span:hover{border-color:#fff;color:#fff}
+.dates input:checked + span{border-color:#fff;background:#fff;color:var(--brand-ink);font-weight:800;
+  box-shadow:0 8px 22px rgba(0,0,0,.45)}
+.dates input:focus-visible + span{outline:2px solid #fff;outline-offset:2px}
 .stepper{display:flex;align-items:center;gap:0;border:1px solid var(--line-strong);border-radius:var(--r-sm);
   width:fit-content;overflow:hidden}
 .stepper button{width:48px;height:48px;background:var(--fill);border:0;color:var(--text);font-size:19px;
   cursor:pointer;font-family:inherit;transition:background .15s,color .15s}
-.stepper button:hover{background:var(--brand-soft);color:var(--brand)}
+.stepper button:hover{background:rgba(255,255,255,.12);color:#fff}
 .stepper input{width:66px;height:48px;text-align:center;background:var(--surface-2);border:0;
   border-left:1px solid var(--line-strong);border-right:1px solid var(--line-strong);
   color:var(--text);font-family:inherit;font-size:16px;font-weight:700}
@@ -1682,12 +2018,13 @@ details.faq p{color:var(--text-2);font-size:14.5px;margin-top:12px;max-width:66c
 
 {% block body %}
 {% set shots = trek.gallery_list() %}
+{% set hero_photo = shots[0] if shots else trek.image_url %}
 
 <section class="t-hero">
   <div class="t-wrap">
     <div class="t-frame">
-      <div class="blur" style="background-image:url('{{ trek.image_url }}'),url('{{ trek.fallback_image }}')"></div>
-      <img class="shot" src="{{ trek.image_url }}" alt="{{ trek.name }}"
+      <div class="blur" style="background-image:url('{{ hero_photo }}'),url('{{ trek.fallback_image }}')"></div>
+      <img class="shot" src="{{ hero_photo }}" alt="{{ trek.name }}" style="object-position:{{ hero_focus }}"
            onerror="this.onerror=null;this.src='{{ trek.fallback_image }}'">
       <div class="scrim"></div>
     </div>
@@ -1784,23 +2121,24 @@ details.faq p{color:var(--text-2);font-size:14.5px;margin-top:12px;max-width:66c
   </div>
 </section>
 
-{% if shots %}
+{% set carousel_shots = shots[1:] if shots|length > 1 else shots %}
+{% if carousel_shots %}
 <section class="section section--tight" style="padding-top:0">
   <div class="shell">
     <div class="carousel" id="gal">
       <div class="frames">
-        {% for src in shots %}
+        {% for src in carousel_shots %}
         <img class="{{ 'on' if loop.first }}" src="{{ src }}" alt="{{ trek.name }}"
              {{ 'loading=lazy' if not loop.first }}
              onerror="this.onerror=null;this.src='{{ trek.fallback_image }}'">
         {% endfor %}
       </div>
-      {% if shots|length > 1 %}
-      <span class="ccount"><b id="galNow">1</b> / {{ shots|length }}</span>
+      {% if carousel_shots|length > 1 %}
+      <span class="ccount"><b id="galNow">1</b> / {{ carousel_shots|length }}</span>
       <button class="cbtn prev" type="button" onclick="galNav(-1)" aria-label="Previous photograph">&#8249;</button>
       <button class="cbtn next" type="button" onclick="galNav(1)" aria-label="Next photograph">&#8250;</button>
       <div class="cdots">
-        {% for src in shots %}<span class="{{ 'on' if loop.first }}" onclick="galGo({{ loop.index0 }})"></span>{% endfor %}
+        {% for src in carousel_shots %}<span class="{{ 'on' if loop.first }}" onclick="galGo({{ loop.index0 }})"></span>{% endfor %}
       </div>
       {% endif %}
     </div>
@@ -1969,7 +2307,7 @@ TEMPLATES["cart.html"] = """
             <p class="meta">{{ item.location }}</p>
             <p class="meta" style="margin-top:6px">{{ item.trek_date|pretty_date }}</p>
             <p class="meta">&#8377;{{ item.price }} per person</p>
-            <a href="/trek/{{ item.trek_slug }}" class="small" style="color:var(--brand);text-decoration:none">View trek details</a>
+            <a href="/trek/{{ item.trek_slug }}" class="small" style="color:#fff;font-weight:600;text-decoration:none">View trek details</a>
           </div>
           <div class="c-right">
             <strong class="price">&#8377;{{ item.subtotal() }}</strong>
@@ -2051,20 +2389,20 @@ TEMPLATES["checkout.html"] = """
 .tabs{display:flex;gap:14px;margin-bottom:24px}
 .tabs label{flex:1;text-align:center;padding:18px;border:1px solid var(--line-strong);border-radius:var(--r-md);
   background:var(--surface-2);font-size:14.5px;font-weight:600;color:var(--text-2);cursor:pointer;transition:.15s}
-.tabs label:hover{border-color:var(--brand);color:var(--brand)}
+.tabs label:hover{border-color:#fff;color:#fff}
 .tabs input{position:absolute;opacity:0;width:0;height:0}
-.tabs label.on{border-color:var(--brand);color:var(--brand-ink);background:var(--brand);
-  box-shadow:0 10px 26px rgba(128,152,255,.22)}
+.tabs label.on{border-color:#fff;color:var(--brand-ink);background:#fff;font-weight:800;
+  box-shadow:0 10px 26px rgba(0,0,0,.45)}
 .pay{display:none}
 .pay.on{display:block}
 .qr{text-align:center;padding:28px;background:var(--fill);border:1px solid var(--line);
   border-radius:var(--r-lg);margin-bottom:22px}
 .qr img{width:190px;height:190px;margin:0 auto;border-radius:12px;background:#fff;padding:10px;border:1px solid var(--line)}
 .qr p{font-size:12.5px;color:var(--muted);margin:12px auto 0;max-width:34ch}
-.sandbox{border:1px solid var(--line);border-left:3px solid var(--accent);background:var(--surface);
+.sandbox{border:1px solid var(--line);border-left:3px solid #fff;background:var(--surface);
   border-radius:var(--r-md);padding:18px 22px;font-size:13.5px;line-height:1.7;color:var(--text-2);
   margin-bottom:34px;max-width:900px;box-shadow:var(--shadow-sm)}
-.sandbox b{color:var(--accent)}
+.sandbox b{color:#fff;font-weight:800}
 {% endblock %}
 
 {% block body %}
@@ -2170,9 +2508,9 @@ TEMPLATES["confirmation.html"] = """
 .done{text-align:center;max-width:640px;margin:0 auto clamp(40px,5vw,60px)}
 .done .lede{margin-left:auto;margin-right:auto}
 .mark{width:84px;height:84px;margin:0 auto 26px;border-radius:50%;display:grid;place-items:center;font-size:36px}
-.mark.ok{background:rgba(65,214,155,.12);border:1px solid rgba(65,214,155,.4);color:var(--green);
-  box-shadow:0 0 44px rgba(65,214,155,.18)}
-.mark.no{background:rgba(255,111,111,.12);border:1px solid rgba(255,111,111,.4);color:var(--red)}
+.mark.ok{background:rgba(255,255,255,.16);border:1px solid #fff;color:#fff;font-weight:800;
+  box-shadow:0 0 44px rgba(255,255,255,.14)}
+.mark.no{background:transparent;border:1px solid var(--line);color:var(--muted);font-weight:600}
 .steps-bar{display:flex;gap:12px;align-items:center;justify-content:center;font-size:13.5px;color:var(--muted);
   margin-bottom:40px;flex-wrap:wrap}
 .steps-bar b{color:var(--text)}
@@ -2244,7 +2582,7 @@ TEMPLATES["confirmation.html"] = """
       <h3 style="margin-bottom:14px">What happens next</h3>
       <ul class="ticklist next">
         <li>A receipt with this reference is in your inbox.</li>
-        <li>The meeting point, start time and your guide's number are emailed two days before departure.</li>
+        <li>Your pre-trek brief is emailed two days before departure.</li>
         <li>Arrive 30 minutes before the listed start time; forest checkposts verify photo ID.</li>
         <li>Date changes and cancellations are free up to 72 hours before departure.</li>
       </ul>
@@ -2341,12 +2679,14 @@ TEMPLATES["auth.html"] = """
 .auth{display:grid;grid-template-columns:1fr 1fr;min-height:640px;background:var(--surface);
   border:1px solid var(--line);border-radius:var(--r-xl);overflow:hidden;
   margin:clamp(40px,6vw,86px) auto;max-width:1120px;box-shadow:var(--shadow-lg)}
-.auth .art{position:relative;background:var(--stone) center/cover no-repeat;display:flex;align-items:flex-end;padding:34px}
+/* 1) + 9) signin.jpg / signup.jpg, centred and covering the whole panel */
+.auth .art{position:relative;background-color:var(--stone);background-position:center center;
+  background-size:cover;background-repeat:no-repeat;display:flex;align-items:flex-end;padding:34px}
 .auth .art::after{content:"";position:absolute;inset:0;
   background:linear-gradient(180deg,rgba(5,8,12,.25) 0%,rgba(5,8,12,.4) 40%,rgba(5,8,12,.92) 100%)}
 .auth .art .say{position:relative;z-index:2}
 .auth .art .say p{font-family:var(--serif);font-size:20px;line-height:1.4;color:#fff}
-.auth .art .say span{font-size:13px;color:var(--brand-light)}
+.auth .art .say span{font-size:12.5px;letter-spacing:1.6px;text-transform:uppercase;color:#fff}
 .auth .side{padding:clamp(36px,4vw,62px)}
 @media (max-width:860px){.auth{grid-template-columns:1fr;margin:24px auto;min-height:0}
   .auth .art{min-height:230px}.auth .side{padding:36px 26px}}
@@ -2356,10 +2696,7 @@ TEMPLATES["auth.html"] = """
 <div class="shell">
   <div class="auth">
     <div class="art" style="background-image:url('{{ art }}'),url('{{ art_fallback }}')">
-      <div class="say">
-        <p>{{ 'Six guided trails across Karnataka, with weekend departures.' if mode == 'signup' else 'Your cart and bookings are saved to your account.' }}</p>
-        <span>PEAK Adventures</span>
-      </div>
+      
     </div>
 
     <div class="side">
@@ -2395,9 +2732,9 @@ TEMPLATES["auth.html"] = """
 
       <p class="small" style="text-align:center;margin-top:22px">
         {% if mode == 'signup' %}
-          Already booked with us? <a href="/signin" style="color:var(--brand);text-decoration:none;font-weight:600">Sign in</a>
+          Already booked with us? <a href="/signin" style="color:#fff;text-decoration:underline;font-weight:700">Sign in</a>
         {% else %}
-          First time here? <a href="/signup" style="color:var(--brand);text-decoration:none;font-weight:600">Create an account</a>
+          First time here? <a href="/signup" style="color:#fff;text-decoration:underline;font-weight:700">Create an account</a>
         {% endif %}
       </p>
     </div>
@@ -2424,93 +2761,279 @@ TEMPLATES["about.html"] = """
   padding:32px;box-shadow:var(--shadow)}
 .crew .avatar{width:54px;height:54px;font-size:16px;margin-bottom:20px}
 .crew h3{font-size:21px;margin-bottom:6px}
-.crew .role{font-size:13.5px;color:var(--accent);margin-bottom:14px}
+.crew .who--lead{grid-column:1/-1;display:grid;grid-template-columns:auto minmax(0,1fr);
+  gap:clamp(22px,2.4vw,34px);align-items:start}
+.crew .who--lead .avatar{width:72px;height:72px;font-size:20px;margin-bottom:0}
+@media (max-width:720px){.crew .who--lead{grid-template-columns:1fr}}
+/* 1) Fixed three columns instead of auto-fit. Six rules over three columns
+   is exactly two full rows, so the grid's own background can never show
+   through as an empty grey cell at the end. */
+.rules{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;
+  background:var(--line);border:1px solid var(--line);border-radius:var(--r-xl);overflow:hidden}
+@media (max-width:1000px){.rules{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:640px){.rules{grid-template-columns:1fr}}
+.rules div{background:var(--surface);padding:30px}
+.rules h4{font-family:var(--serif);font-size:19px;margin-bottom:10px}
+.rules p{font-size:14px;line-height:1.7;color:var(--text-2)}
+.story{display:grid;grid-template-columns:170px minmax(0,1fr);gap:26px;padding:24px 0;
+  border-top:1px solid var(--line)}
+.story:last-child{border-bottom:1px solid var(--line)}
+.story .yr{font-family:var(--serif);font-size:20px;font-weight:700;color:var(--text)}
+.story h4{font-family:var(--sans);font-size:15.5px;font-weight:700;margin-bottom:8px}
+.story p{font-size:14.5px;line-height:1.7;color:var(--text-2)}
+@media (max-width:620px){.story{grid-template-columns:1fr;gap:6px}}
+.crew .role{font-size:12.5px;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted);
+  font-weight:700;margin-bottom:14px}
 .crew p{font-size:14.5px;line-height:1.7;color:var(--text-2)}
 {% endblock %}
 
 {% block body %}
 <section class="about-hero">
-  <div class="shell" style="padding:0">
+  <div class="shell">
     <p class="kicker">About us</p>
-    <h1 style="max-width:20ch">A trekking operator run out of Bengaluru</h1>
+    <h1 style="max-width:22ch">A trekking operator run out of Bengaluru</h1>
     <p class="lede" style="margin-top:16px">
-      We run permitted, guided departures on six Karnataka trails, with capped group sizes and
-      difficulty grading taken from a walk of the route in the current season.
+      PEAK runs permitted, guided weekend departures on {{ trek_count }} Karnataka trails across the
+      Western Ghats and the Deccan plateau. Batches are capped at fifteen, every departure goes out
+      with two guides, and the difficulty grade on each trek page comes from a walk of that route in
+      the current season rather than from a brochure.
     </p>
     <div class="tally">
       <div><b>2021</b><span>Year we started</span></div>
       <div><b>{{ trek_count }}</b><span>Trails we run</span></div>
       <div><b>{{ trekker_count }}+</b><span>Trekkers taken out</span></div>
       <div><b>15</b><span>Maximum group size</span></div>
-    </div>
-  </div>
-</section>
-
-<section class="section">
-  <div class="shell">
-    <div class="grid g-2">
-      <div>
-        <h2 style="margin-bottom:18px">How we work</h2>
-        <div class="prose">
-          <p>Every trail on this site has been walked by someone on the team in the last season. The grading,
-            the timings and the water points come from that walk, not from a tourism brochure.</p>
-          <p>Batches are capped at fifteen. Two guides go out with every group, one setting the pace at the front
-            and one staying with whoever is slowest. Nobody finishes a trail alone.</p>
-          <p>Permits, forest department entries and eco-tourism slots are arranged before the day and built into
-            the price, so there is no scramble at the gate and no cash collection at the base.</p>
-        </div>
-      </div>
-      <div id="safety">
-        <h2 style="margin-bottom:18px">Our safety promise</h2>
-        <ul class="ticklist">
-          <li>A lead guide and a sweep guide on every batch, without exception.</li>
-          <li>First-aid kit and an emergency contact list carried by both guides.</li>
-          <li>Weather called 24 hours ahead. If a trail is unsafe we move the date, we do not push it.</li>
-          <li>Honest difficulty grading, including a fitness note for the harder climbs.</li>
-          <li>A briefing at the base covering the route, the turnaround time and the bail-out points.</li>
-          <li>Free date change or full refund up to 72 hours before departure.</li>
-        </ul>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section class="section section--surface" id="leave-no-trace">
-  <div class="shell">
-    <div class="head"><p class="kicker">Leave no trace</p><h2>Leave no trace</h2></div>
-    <div class="grid g-3">
-      <div class="card"><h3>Carry it back</h3><p class="small" style="margin-top:10px">Every trekker gets a waste bag at
-        the base and we check it at the end. Nothing stays on the hill, including fruit peel.</p></div>
-      <div class="card"><h3>Stay on the path</h3><p class="small" style="margin-top:10px">Shortcuts across grassland
-        cause the erosion scars you can see from the road. We walk the marked line.</p></div>
-      <div class="card"><h3>Quiet on the trail</h3><p class="small" style="margin-top:10px">No speakers, no drones over
-        nesting areas, no feeding anything. The wildlife was here first.</p></div>
-    </div>
-  </div>
-</section>
-
-<section class="section">
-  <div class="shell">
-    <div class="head"><p class="kicker">The crew</p><h2>Who you will actually meet</h2></div>
-    <div class="crew">
-      <div class="who"><span class="avatar">RB</span><h3>Rohit B.</h3><p class="role">Lead guide, Western Ghats</p>
-        <p>Grew up near Kalasa, has walked the Kudremukh approach more times than he can count.</p></div>
-      <div class="who"><span class="avatar">MD</span><h3>Meera D.</h3><p class="role">Safety and logistics</p>
-        <p>Wilderness first responder. Calls the weather, packs the kits, argues with permit offices.</p></div>
-      <div class="who"><span class="avatar">AS</span><h3>Arjun S.</h3><p class="role">Rock and scramble lead</p>
-        <p>Handles the granite days: Savandurga, Ramanagara and anything with exposure.</p></div>
-      <div class="who"><span class="avatar">KN</span><h3>Kavya N.</h3><p class="role">Bookings and briefings</p>
-        <p>The person behind the pre-trek emails, and the one who answers on trek morning.</p></div>
+      <div><b>2</b><span>Guides per departure</span></div>
+      <div><b>0</b><span>Trailhead fees to pay</span></div>
     </div>
   </div>
 </section>
 
 <section class="section section--tight">
   <div class="shell">
-    <div class="card" style="text-align:center;padding:46px 26px">
-      <h2 style="margin-bottom:12px">Not sure which trail fits?</h2>
-      <p class="lede" style="margin:0 auto 24px">Send us your fitness level and the dates you are free, and we will recommend one.</p>
-      <a href="/contact" class="btn btn--primary">Contact us</a>
+    <div class="pair">
+      <div>
+        <p class="kicker">What we do</p>
+        <h2 style="margin-bottom:18px">Six trails, run properly, instead of sixty on a list</h2>
+        <div class="prose">
+          <p>
+            Every trek on this site is one we operate ourselves. We are not a marketplace reselling
+            somebody else's batch, so the guide who meets you at the base is on our team, the permit
+            in your name was applied for by us, and the person who answers the phone on trek morning
+            can actually tell you where your group is.
+          </p>
+          <p>
+            That is also why the list is short. Each trail gets re-walked at the start of a season and
+            the trek page gets rewritten from that walk, which is slow work. Adding a seventh trail
+            means doing all of it again properly, so we only add one when we can.
+          </p>
+          <p>
+            We operate out of Indiranagar, Bengaluru, and almost everything we run is a weekend
+            departure you can do without taking leave: a Saturday or Sunday start, back in the city
+            the same night or by the next morning.
+          </p>
+        </div>
+      </div>
+      <div>
+      <br>
+        <p class="kicker">How we work</p>
+        <h2 style="margin-bottom:18px">Things we will not do</h2>
+        <ul class="ticklist no">
+          <li>Take more than fifteen trekkers in a batch, whatever the demand for a date</li>
+          <li>Send a batch out with one guide because the second one called in sick</li>
+          <li>Soften a difficulty grade to make a trail sell better</li>
+          <li>Collect anything extra at the trailhead or at a forest checkpost</li>
+          <li>Run a high trail in peak monsoon because a group has already paid</li>
+          <li>Light cooking fires, or carry single-use plastic up any route</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section section--tight">
+  <div class="shell">
+    <div class="card" style="padding:clamp(30px,4vw,46px);max-width:74ch">
+      <p class="kicker" style="margin-bottom:16px">A note from the founder</p>
+
+      <p style="font-size:17.5px;line-height:1.8;color:var(--text-2)">
+        PEAK started the way most good weekend plans do: someone suggested a trek, a few people said yes,
+        and suddenly we were figuring out who had a car. I liked the trekking part. I did not particularly
+        enjoy keeping track of ten people, three different pickup points and everyone's idea of what
+        "early morning" meant.
+      </p>
+
+      <p style="font-size:17.5px;line-height:1.8;color:var(--text-2);margin-top:16px">
+        Somewhere along the way, those little weekend trips turned into PEAK. The idea is still pretty
+        simple — find good trails, put together good groups, and make the whole thing easier for people
+        who just want to go trekking without spending their entire week planning it.
+      </p>
+
+      <p style="font-size:17.5px;line-height:1.8;color:var(--text-2);margin-top:16px">
+        I still go out on the trails whenever I can. Partly because I love it, and partly because you learn
+        things on a trail that you won't find on a map. A route can look easy on paper and have one
+        ridiculous climb halfway through. A "small" stream can become very much not small after rain.
+        And sometimes the best part of a trek is the chai you find afterwards.
+      </p>
+
+      <p style="font-size:17.5px;line-height:1.8;color:var(--text-2);margin-top:16px">
+        We're a small team, and that's intentional. We know the trails, we know the people coming on them,
+        and we're around when things don't go exactly according to plan. Which, on a trek, they occasionally
+        don't. That's part of the fun too.
+      </p>
+
+      <p style="margin-top:24px;font-weight:800;color:var(--text)">
+        — Prerana S, Founder
+      </p>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="shell">
+    <div class="head">
+      <p class="kicker">The crew</p>
+      <h2>The people behind the trails</h2>
+      <p class="lede" style="margin-top:12px">
+        Small team. Too many trekking photos. Very little interest in sitting at a desk all weekend.
+      </p>
+    </div>
+
+    <div class="crew">
+
+      <div class="who who--lead">
+        <span class="avatar">PS</span>
+        <div>
+          <h3>Prerana S</h3>
+          <p class="role">Founder</p>
+          <p>
+            Started PEAK because organising weekend treks seemed like a better use of time than talking
+            about organising weekend treks. Usually the one checking routes, sorting out the details and
+            making sure everyone actually knows what they're signing up for. Has a habit of saying
+            "it's not that far" immediately before a very long climb.
+          </p>
+        </div>
+      </div>
+
+      <div class="who">
+        <span class="avatar">RB</span>
+        <h3>Rohit B</h3>
+        <p class="role">Lead guide, Western Ghats</p>
+        <p>
+          Knows the Kudremukh side of the Western Ghats better than most people know their own
+          neighbourhood. Fast uphill, annoyingly so, but patient enough to wait for everyone else.
+          Has a very practical approach to trekking: check the weather, check the trail, check the group,
+          then decide what happens next. Especially good at spotting the "shortcut" that definitely isn't
+          a shortcut.
+        </p>
+      </div>
+
+      <div class="who">
+        <span class="avatar">MD</span>
+        <h3>Meera D</h3>
+        <p class="role">Safety and logistics</p>
+        <p>
+          The organised one. Knows where the first-aid kit is, when the weather is about to turn and
+          exactly how much water people should have brought. Keeps the rest of us from making decisions
+          based entirely on optimism. If a trek needs to be changed because of weather, she's usually the
+          person who says it first.
+        </p>
+      </div>
+
+      <div class="who">
+        <span class="avatar">AS</span>
+        <h3>Arjun S</h3>
+        <p class="role">Rock and scramble lead</p>
+        <p>
+          Give him a rocky trail and he'll probably be happy for the rest of the day. Spends a lot of
+          weekends around Savandurga and Ramanagara and has an impressive ability to notice every climb,
+          ledge and slightly questionable-looking rock before the rest of us do. Quiet until someone
+          asks about climbing. Then you're getting the full explanation.
+        </p>
+      </div>
+
+      <div class="who">
+        <span class="avatar">KN</span>
+        <h3>Kavya N</h3>
+        <p class="role">Bookings and briefings</p>
+        <p>
+          The person who makes sure the rest of us know who's coming, where they're coming from and
+          whether they've read the trek briefing. If you've messaged PEAK with a question before a trek,
+          you've probably spoken to her. Remembers regulars, remembers their favourite trails, and has
+          probably answered "what should I wear?" more times than anyone should have to.
+        </p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<section class="section section--surface">
+  <div class="shell">
+    <div class="head"><p class="kicker">How we run a departure</p><h2>The same six rules, every trek</h2></div>
+    <div class="rules">
+      <div><h4>Two guides, always</h4><p>A lead guide at the front and a sweep guide at the back on
+        every batch, regardless of size. Both carry a first-aid kit and a whistle, and a route plan is
+        left with the office before you set off.</p></div>
+      <div><h4>Headcounts at every junction</h4><p>Not only at the start and the finish. On trails with
+        side paths that is the difference between noticing someone is missing in two minutes and
+        noticing at the summit.</p></div>
+      <div><h4>Grades from a real walk</h4><p>Re-walked each season. Savandurga is marked difficult
+        because the granite is loose and exposed in three places, and if monsoon damage changes a route
+        the grade changes before the next batch, not after.</p></div>
+      <div><h4>Permits arranged in advance</h4><p>Kudremukh and Kumara Parvatha sit inside reserve
+        forest with a capped daily quota. We apply using the ID details from your booking, and the cost
+        is already in the price you saw.</p></div>
+      <div><h4>Weather calls the evening before</h4><p>Everyone in the batch is told at the same time.
+        A cancelled departure is a full refund or a free date change, your choice. A guide can also stop
+        a group mid-trail, and that call is final.</p></div>
+      <div><h4>Everything comes back down</h4><p>A waste bag at the base, checked at the end rather
+        than just handed out. No cooking fires, no single-use plastic, and rest stops kept away from
+        water sources.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="shell">
+    <div class="head"><p class="kicker">How we got here</p><h2>Five years, six trails</h2></div>
+    <div>
+      <div class="story"><div class="yr">2021</div>
+        <div><h4>A weekend group becomes a business</h4>
+          <p>PEAK registers in Bengaluru and runs its first paid departures on Skandagiri and Nandi
+            Hills, with two guides and a borrowed van.</p></div></div>
+      <div class="story"><div class="yr">2022</div>
+        <div><h4>Into the Western Ghats</h4>
+          <p>Kudremukh and Kodachadri are added after a full season of route walks, along with the first
+            forest department permit arrangements for reserve-forest trails.</p></div></div>
+      <div class="story"><div class="yr">2023</div>
+        <div><h4>Granite and the hard grades</h4>
+          <p>Savandurga and Kumara Parvatha go on the calendar, and the difficulty grading is rewritten
+            so that exposure counts as much as distance.</p></div></div>
+      <div class="story"><div class="yr">2024</div>
+        <div><h4>Batches capped for good</h4>
+          <p>Group size is capped at fifteen across every trail and the two-guide rule becomes absolute,
+            even when it means turning down bookings on a popular weekend.</p></div></div>
+      <div class="story"><div class="yr">2025</div>
+        <div><h4>Booking moves onto this site</h4>
+          <p>Dates, quotas, payment and receipts all move online, so a booking is confirmed against a
+            real permit quota rather than a spreadsheet someone updates on Monday.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<section class="section section--tight">
+  <div class="shell">
+    <div class="card" style="text-align:center">
+      <h2 style="margin-bottom:12px">Not sure which trail suits you?</h2>
+      <p class="lede" style="margin:0 auto 26px">
+        Tell us your fitness, your experience and the weekend you have free, and we will say plainly
+        which of the {{ trek_count }} trails fits and which one does not.
+      </p>
+      <div class="row" style="justify-content:center">
+        <a href="/contact" class="btn btn--primary">Ask us</a>
+        <a href="/treks" class="btn btn--ghost">Browse all treks</a>
+      </div>
     </div>
   </div>
 </section>
@@ -2527,7 +3050,8 @@ TEMPLATES["contact.html"] = """
 @media (max-width:880px){.c-layout{grid-template-columns:1fr}}
 .info div{padding:24px 0;border-bottom:1px solid var(--line)}
 .info div:first-child{padding-top:0}
-.info h4{font-family:var(--sans);font-size:13px;font-weight:700;color:var(--accent);margin-bottom:8px}
+.info h4{font-family:var(--sans);font-size:12px;letter-spacing:1.4px;text-transform:uppercase;
+  font-weight:700;color:var(--text);margin-bottom:8px}
 .info p{font-size:14.5px;line-height:1.7;color:var(--muted)}
 {% endblock %}
 
@@ -2537,35 +3061,49 @@ TEMPLATES["contact.html"] = """
     <p class="kicker">Contact</p>
     <h1 style="margin-bottom:12px">Get in touch</h1>
     <p class="lede" style="margin-bottom:38px">
-      Questions about fitness, group bookings, or whether a trail is running this weekend. We reply within a day.
+      Questions about fitness, group bookings, or whether a trail is running this weekend.
+      Everything sent from this form lands in our inbox and we reply within one working day.
     </p>
 
     <div class="c-layout">
       <form method="POST" class="card">
         <div class="field-row">
           <div class="field"><label for="name">Your name</label>
-            <input id="name" type="text" name="name" value="{{ form.name }}" required></div>
+            <input id="name" type="text" name="name" value="{{ form.name }}"
+                   placeholder="So we know who we are replying to" minlength="2" required></div>
           <div class="field"><label for="email">Email</label>
-            <input id="email" type="email" name="email" value="{{ form.email }}" required></div>
+            <input id="email" type="email" name="email" value="{{ form.email }}"
+                   placeholder="you@example.com" required></div>
         </div>
-        <div class="field"><label for="subject">What is this about</label>
-          <select id="subject" name="subject">
-            <option>A booking I already made</option>
-            <option>Choosing the right trek</option>
-            <option>Group or corporate booking</option>
-            <option>Refund or date change</option>
-            <option>Something else</option>
-          </select></div>
+        <div class="field-row">
+          <div class="field"><label for="phone">Mobile number</label>
+            <input id="phone" type="tel" name="phone" value="{{ form.phone }}"
+                   placeholder="Optional, if you would rather we called">
+          </div>
+          <div class="field"><label for="subject">What is this about</label>
+            <select id="subject" name="subject">
+              {% for s in subjects %}
+                <option value="{{ s }}" {{ 'selected' if form.subject == s }}>{{ s }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
         <div class="field"><label for="message">Your message</label>
-          <textarea id="message" name="message" placeholder="Tell us what you need" required>{{ form.message }}</textarea></div>
+          <textarea id="message" name="message" minlength="10"
+                    placeholder="Tell us what you need. If it is about a booking you already made, include the reference from your receipt."
+                    required>{{ form.message }}</textarea>
+          <p class="hint">We reply to the email address above, so do check it is right.</p>
+        </div>
         <button class="btn btn--primary" type="submit">Send message</button>
       </form>
 
       <div class="info">
-        <div><h4>Email</h4><p>hello@peak-treks.test</p><p>Replies within one working day.</p></div>
-        <div><h4>Phone</h4><p>+91 80 4000 0000, weekdays 10am to 7pm</p></div>
-        <div><h4>On trek days</h4><p>The guide's number goes out with your pre-trek brief, two days before departure.</p></div>
+        <div><h4>Email</h4><p>{{ support_email }}</p><p>Replies within one working day.</p></div>
+        <div><h4>Phone</h4><p>{{ support_phone }}, weekdays 10am to 7pm</p></div>
+        <div><h4>On trek days</h4><p>Your guide's number goes out with the pre-trek brief, two days before departure.</p></div>
         <div><h4>Office</h4><p>Indiranagar, Bengaluru 560038</p></div>
+        <div><h4>Existing bookings</h4><p>Quote the reference printed on your receipt and we can pull the
+          booking up straight away. Date changes and cancellations are free up to 72 hours before departure.</p></div>
         <div style="border-bottom:0"><h4>Group bookings</h4><p>Ten or more trekkers, or a private batch on a date of your
           choosing? Mention it in the form and we will quote separately.</p></div>
       </div>
@@ -2576,24 +3114,46 @@ TEMPLATES["contact.html"] = """
 """
 
 
+# 2) Shown for a bad URL and for a trek slug that does not exist. Uses
+# error.jpg, a one-line message and a single button back into the site.
 TEMPLATES["404.html"] = """
 {% extends "base.html" %}
-{% block title %}404 — Page Not Found | PEAK{% endblock %}
+{% block title %}404 — Page not found | PEAK{% endblock %}
+
+{% block extra_css %}
+.err{max-width:920px;margin:clamp(34px,5vw,70px) auto clamp(60px,7vw,100px);
+  border:1px solid var(--line-strong);border-radius:var(--r-2xl);overflow:hidden;
+  background:var(--surface);box-shadow:var(--shadow-lg)}
+/* 9) the error photo is centred and covers its band */
+.err .shot{width:100%;aspect-ratio:16/9;object-fit:cover;object-position:center center;
+  border-bottom:1px solid var(--line-strong);background:var(--stone)}
+.err .say{padding:clamp(30px,4vw,52px);text-align:center}
+.err .say .code{font-size:12px;font-weight:700;letter-spacing:2.4px;text-transform:uppercase;
+  color:var(--muted);margin-bottom:14px}
+.err .say h1{font-size:clamp(28px,3.4vw,42px);margin-bottom:12px}
+.err .say p{color:var(--text-2);max-width:52ch;margin:0 auto 28px}
+.err .row{justify-content:center}
+{% endblock %}
+
 {% block body %}
-<section class="section">
-  <div class="shell shell--narrow">
-    <div class="empty card">
-      <p class="kicker" style="font-size:15px;letter-spacing:1px">404</p>
-      <h2>Page Not Found</h2>
-      <p>The page you requested does not exist or has moved. Check the address, or use one of the links below.</p>
-      <div class="row" style="justify-content:center">
-        <a href="/" class="btn btn--primary">Home</a>
-        <a href="/treks" class="btn btn--ghost">All treks</a>
-        <a href="/contact" class="btn btn--ghost">Contact support</a>
+<div class="shell">
+  <div class="err">
+    <img class="shot" src="/error.jpg" alt="Off the trail"
+         onerror="this.onerror=null;this.style.display='none'">
+    <div class="say">
+      <p class="code">Error 404</p>
+      <h1>This trail does not exist</h1>
+      <p>
+        The page or trek you asked for is not here. It may have been moved, or the address
+        may have a typo in it.
+      </p>
+      <div class="row">
+        <a href="/" class="btn btn--primary">Back to PEAK</a>
+        <a href="/treks" class="btn btn--ghost">See all treks</a>
       </div>
     </div>
   </div>
-</section>
+</div>
 {% endblock %}
 """
 
@@ -2608,7 +3168,9 @@ def index():
     featured = (Trek.query.order_by(Trek.featured.desc(), Trek.sort_order.asc())
                 .limit(3).all())
     return render_template("home.html", nav="home", featured=featured,
-                           hero_photo=HERO_PHOTO, cta_photo=PHOTOS["savandurga"]["remote"],
+                           hero_photo=HERO_PHOTO,
+                           cta_photo=CTA_PHOTO,
+                           cta_photo_fallback=PHOTOS["savandurga"]["remote"],
                            trek_count=Trek.query.count(),
                            trekker_count=900 + 7 * Order.query.filter_by(status="paid").count())
 
@@ -2646,6 +3208,12 @@ def trek_list():
                            total=Trek.query.count(), q=q, sort=sort)
 
 
+# Hero photos on the trek detail page are centred in their frame. This dict
+# is kept only as an escape hatch for a single photo whose subject sits far
+# off to one side; leave it empty and every trek gets the centred crop.
+HERO_FOCUS = {}
+
+
 @app.route("/trek/<slug>")
 def trek_detail(slug):
     trek = Trek.query.filter_by(slug=slug).first()
@@ -2656,7 +3224,8 @@ def trek_detail(slug):
                .order_by(Trek.featured.desc(), Trek.sort_order.asc()).limit(3).all())
 
     return render_template("trek.html", nav="treks", trek=trek, related=related,
-                           available_dates=get_available_dates())
+                           available_dates=get_available_dates(),
+                           hero_focus=HERO_FOCUS.get(slug, "center center"))
 
 
 # ---------------- cart ----------------
@@ -2941,7 +3510,7 @@ def signup():
 
     return render_template("auth.html", nav="auth", mode="signup", form=form,
                            next_url=next_url,
-                           art=PHOTOS["kodachadri"]["local"],
+                           art=AUTH_PHOTO_SIGNUP,
                            art_fallback=PHOTOS["kodachadri"]["remote"])
 
 
@@ -2965,7 +3534,7 @@ def signin():
 
     return render_template("auth.html", nav="auth", mode="signin", form=form,
                            next_url=next_url,
-                           art=PHOTOS["skandagiri"]["local"],
+                           art=AUTH_PHOTO_SIGNIN,
                            art_fallback=PHOTOS["skandagiri"]["remote"])
 
 
@@ -2999,25 +3568,85 @@ def about():
                            trekker_count=900 + 7 * Order.query.filter_by(status="paid").count())
 
 
+SUBJECT_OPTIONS = [
+    "A booking I already made",
+    "Choosing the right trek",
+    "Group or corporate booking",
+    "Refund or date change",
+    "Fitness or difficulty question",
+    "Something else",
+]
+
+
 @app.route("/contact", methods=["GET", "POST"])
 def contact():
+    """The form now validates, saves the enquiry, emails it to ENQUIRY_INBOX
+    and sends the writer an acknowledgement. On a validation error the page
+    comes back with what they typed still in the fields."""
     user = current_user()
-    form = {"name": user.name if user else "", "email": user.email if user else "", "message": ""}
+    form = {
+        "name": user.name if user else "",
+        "email": user.email if user else "",
+        "phone": user.phone if user else "",
+        "subject": SUBJECT_OPTIONS[0],
+        "message": "",
+    }
 
     if request.method == "POST":
         form = {
             "name": request.form.get("name", "").strip(),
             "email": request.form.get("email", "").strip(),
+            "phone": request.form.get("phone", "").strip(),
+            "subject": request.form.get("subject", "").strip() or SUBJECT_OPTIONS[0],
             "message": request.form.get("message", "").strip(),
         }
-        db.session.add(Enquiry(name=form["name"], email=form["email"],
-                               subject=request.form.get("subject", "General"),
-                               message=form["message"]))
+
+        errors = []
+        if len(form["name"]) < 2:
+            errors.append("Please give a name we can use in the reply.")
+        email = form["email"]
+        if "@" not in email or "." not in email.split("@")[-1] or len(email) < 6:
+            errors.append("That email address does not look right, so we would not be able to reply.")
+        if len(form["message"]) < 10:
+            errors.append("Tell us a little more in the message so we can actually answer it.")
+        if form["subject"] not in SUBJECT_OPTIONS:
+            form["subject"] = SUBJECT_OPTIONS[-1]
+
+        if errors:
+            for e in errors:
+                flash(e, "error")
+            return render_template("contact.html", nav="contact", form=form,
+                                   subjects=SUBJECT_OPTIONS, support_email=ENQUIRY_INBOX,
+                                   support_phone=SUPPORT_PHONE)
+
+        enquiry = Enquiry(name=form["name"], email=form["email"], phone=form["phone"],
+                          subject=form["subject"], message=form["message"])
+        db.session.add(enquiry)
         db.session.commit()
-        flash("Message received. We reply within one working day.", "success")
+
+        sent = send_enquiry_email(enquiry)
+        if sent:
+            enquiry.emailed = True
+            db.session.commit()
+            send_enquiry_ack(enquiry)
+
+        if user:
+            notify(user.id, "Message sent",
+                   f"We have your message about {enquiry.subject.lower()}. Reference ENQ-{enquiry.id}.",
+                   "success", link="/contact")
+
+        if sent:
+            flash(f"Message sent. Your reference is ENQ-{enquiry.id} and we reply "
+                  f"within one working day.", "success")
+        else:
+            flash(f"Your message is saved with reference ENQ-{enquiry.id}, but our mail "
+                  f"server did not accept it just now. If it is urgent, call "
+                  f"{SUPPORT_PHONE}.", "error")
         return redirect("/contact")
 
-    return render_template("contact.html", nav="contact", form=form)
+    return render_template("contact.html", nav="contact", form=form,
+                           subjects=SUBJECT_OPTIONS, support_email=ENQUIRY_INBOX,
+                           support_phone=SUPPORT_PHONE)
 
 
 @app.errorhandler(404)
@@ -3555,6 +4184,19 @@ def prepare_database():
             db.drop_all()
 
     db.create_all()
+
+    # The contact form gained a phone number and a delivery flag. Add those to
+    # an existing enquiry table in place rather than dropping the database, so
+    # bookings already in peak.db survive the upgrade.
+    inspector = sa_inspect(db.engine)
+    if "enquiry" in inspector.get_table_names():
+        have = {c["name"] for c in inspector.get_columns("enquiry")}
+        for name, ddl in [("phone", "VARCHAR(30) DEFAULT ''"),
+                          ("emailed", "BOOLEAN DEFAULT 0")]:
+            if name not in have:
+                db.session.execute(db.text(f"ALTER TABLE enquiry ADD COLUMN {name} {ddl}"))
+                print(f"[DB] Added enquiry.{name}.")
+        db.session.commit()
 
     if Trek.query.count() == 0:
         seed_treks()
