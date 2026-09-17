@@ -27,7 +27,7 @@ A Flask-based trek booking web application with a containerized CI/CD pipeline d
 | Ansible | Server configuration automation |
 | Docker | Application containerization |
 | Docker Hub | Docker image registry |
-| Kubernetes / k3s | Container orchestration |
+| Kubernetes / k8s | Container orchestration |
 | Kubernetes Service | Exposes the application |
 | Metrics Server | Provides resource metrics |
 | HPA | Horizontal pod autoscaling |
