@@ -1,63 +1,3 @@
-"""
-================================================================
-PEAK — Karnataka trek discovery & booking
-================================================================
-Run it:
-
-    pip install flask flask_sqlalchemy python-dotenv "qrcode[pil]"
-    python app.py
-
-Then open http://127.0.0.1:5000
-
-----------------------------------------------------------------
-WHAT CHANGED FROM THE OLD VERSION
-----------------------------------------------------------------
-1. Templates now live in one Jinja DictLoader with a shared
-   "base.html" layout. Every page inherits the same navbar,
-   footer, flash messages and stylesheet, so the UI is identical
-   everywhere instead of each route carrying its own CSS copy.
-
-2. Real site flow:
-       home -> trek list (search/filter/sort) -> trek detail
-       -> add to cart (guests allowed) -> cart (edit quantities)
-       -> sign in (cart is preserved and merged) -> checkout
-       -> payment -> confirmation -> "My bookings"
-   Sign-in remembers where you were going (?next=) and sends you
-   straight back there.
-
-3. Flash toasts replace most full-page "status" screens, so the
-   user is never dumped out of the flow for a small error.
-
-4. Much more content per trek: tagline, long description, day-by-
-   day itinerary, what's included / not included, FAQs, gallery,
-   ratings, group size, plus About / Contact / Bookings pages.
-
-5. The database schema changed. This file DETECTS an old peak.db
-   and rebuilds it automatically on startup — you don't have to
-   delete anything by hand.
-----------------------------------------------------------------
-SENDING REAL EMAIL (booking receipts + contact form)
-Create a file named  .env  next to this one:
-
-    MAIL_USERNAME=peak84726@gmail.com
-    MAIL_PASSWORD=your_16_character_gmail_app_password
-
-The app password comes from Google Account -> Security -> 2-Step
-Verification -> App passwords. A normal Gmail password will be
-rejected. With those two set, MAIL_SERVER/PORT/SENDER default to
-smtp.gmail.com:587 with TLS automatically.
-
-Contact-form messages always go to ENQUIRY_INBOX (peak84726@gmail.com)
-with Reply-To set to whoever wrote in, and the sender gets a short
-acknowledgement.
-
-LOCAL EMAIL TESTING (no credentials needed)
-    python -m smtpd -c DebuggingServer -n localhost:1025
-If that isn't running either, mail is printed to this console and
-the contact page says plainly that it could not be delivered.
-================================================================
-"""
-
 import base64
 import io
 import json
@@ -81,10 +21,6 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 load_dotenv()
 
-# The business operates out of Bengaluru, so "today" and "now" mean IST
-# everywhere in the app - available trek dates, the cutoff for a valid
-# booking date, and every "Booked on" / "Added on" timestamp. Storing UTC
-# and displaying it unconverted made these drift by a day around midnight.
 IST = timezone(timedelta(hours=5, minutes=30))
 
 
@@ -122,10 +58,6 @@ app.config["MAIL_USE_TLS"] = os.environ.get("MAIL_USE_TLS", "1") != "0"
 UPI_PAYEE_VPA = "bookings@peak"
 UPI_PAYEE_NAME = "PEAK Treks"
 
-# Page photographs that live next to app.py and are served by Flask's static
-# mount (static_folder=".", static_url_path=""), so "/signin.jpg" resolves to
-# the file in this folder. Each has a remote fallback used only if the local
-# file is missing, so the page never renders with an empty box.
 AUTH_PHOTO_SIGNIN = "/signin.jpg"
 AUTH_PHOTO_SIGNUP = "/signup.jpg"
 CTA_PHOTO = "/booktrek.jpg"
@@ -206,7 +138,6 @@ class Trek(db.Model):
     featured = db.Column(db.Boolean, nullable=False, default=False)
     sort_order = db.Column(db.Integer, nullable=False, default=0)
 
-    # --- convenience accessors used by the templates ---
     def highlight_list(self):
         return [x.strip() for x in self.highlights.split(";") if x.strip()]
 
@@ -376,8 +307,6 @@ class Enquiry(db.Model):
     phone = db.Column(db.String(30), default="")
     subject = db.Column(db.String(160), nullable=False)
     message = db.Column(db.Text, nullable=False)
-    # Whether the message actually left over SMTP. A false here means the row
-    # is the only copy, so it is worth being able to see that.
     emailed = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=now_ist)
 
@@ -435,18 +364,15 @@ def merge_cart_into_account(user):
     Rows for the same trek and date are combined instead of duplicated."""
     key = get_cart_key()
 
-    # 1. everything sitting in the current (guest) cart now belongs to them
     for row in CartItem.query.filter_by(cart_key=key).all():
         row.user_id = user.id
 
-    # 2. bring their older rows into the cart key this browser is using
     for row in CartItem.query.filter(CartItem.user_id == user.id,
                                      CartItem.cart_key != key).all():
         row.cart_key = key
 
     db.session.flush()
 
-    # 3. collapse duplicates created by the merge
     seen = {}
     for row in (CartItem.query.filter_by(cart_key=key)
                 .order_by(CartItem.id.asc()).all()):
@@ -534,11 +460,7 @@ def inject_globals():
 
 
 # ================================================================
-# TEST PAYMENT GATEWAYS  (no real money, no network calls)
-#   card 4242 4242 4242 4242 -> approved
-#   card 4000 0000 0000 0002 -> declined
-#   upi  name@bank           -> approved
-#   upi  fail@upi            -> declined
+# PAYMENT 
 # ================================================================
 def process_test_card_payment(card_number, expiry, cvv, amount):
     digits = "".join(ch for ch in (card_number or "") if ch.isdigit())
@@ -580,8 +502,6 @@ def generate_upi_qr_data_uri(amount, order_ref="PEAK-ORDER"):
 # ================================================================
 # EMAIL RECEIPT
 # ================================================================
-# Every message sent from the Contact page is delivered to this address,
-# whoever the sender is. It is also the address shown on the site.
 ENQUIRY_INBOX = "peak84726@gmail.com"
 
 SUPPORT_EMAIL = ENQUIRY_INBOX
@@ -927,9 +847,7 @@ PEAK Adventures, Indiranagar, Bengaluru 560038
 # ================================================================
 # TEMPLATES
 # ----------------------------------------------------------------
-# All pages extend base.html, so the navbar, footer, colours,
-# spacing, buttons and form controls are defined exactly once.
-# ================================================================
+
 TEMPLATES = {}
 
 TEMPLATES["base.html"] = """
@@ -3112,10 +3030,6 @@ TEMPLATES["contact.html"] = """
 </section>
 {% endblock %}
 """
-
-
-# 2) Shown for a bad URL and for a trek slug that does not exist. Uses
-# error.jpg, a one-line message and a single button back into the site.
 TEMPLATES["404.html"] = """
 {% extends "base.html" %}
 {% block title %}404 — Page not found | PEAK{% endblock %}
@@ -3183,9 +3097,6 @@ def trek_list():
     query = Trek.query
 
     if q:
-        # Match against every field that describes where a trek is, so a
-        # state-level search such as "Karnataka" returns all of them rather
-        # than only the ones with the word inside the location string.
         like = f"%{q}%"
         query = query.filter(db.or_(Trek.name.ilike(like),
                                     Trek.location.ilike(like),
@@ -3208,9 +3119,6 @@ def trek_list():
                            total=Trek.query.count(), q=q, sort=sort)
 
 
-# Hero photos on the trek detail page are centred in their frame. This dict
-# is kept only as an escape hatch for a single photo whose subject sits far
-# off to one side; leave it empty and every trek gets the centred crop.
 HERO_FOCUS = {}
 
 
@@ -3311,7 +3219,7 @@ def checkout():
         flash("Your cart is empty. Add a trek and a date, then come back to checkout.", "info")
         return redirect("/treks")
 
-    user = g.user  # guaranteed by @login_required
+    user = g.user  
     subtotal, gst, booking_fee, total = calculate_bill(get_cart_total())
 
     form = {"name": user.name, "email": user.email, "phone": user.phone or ""}
@@ -3333,8 +3241,6 @@ def checkout():
             flash("Enter a contact number we can reach you on for trek day.", "error")
             return redirect("/checkout")
 
-        # Re-validate the cart at the moment of payment: a trek could have been
-        # delisted, or a date could have passed, since the item was added.
         for c in cart:
             if not db.session.get(Trek, c.trek_id) or not valid_trek_date(c.trek_date):
                 db.session.delete(c)
@@ -3347,8 +3253,6 @@ def checkout():
             user.phone = form["phone"]
             db.session.commit()
 
-        # 1. One order per checkout attempt. A retry after a declined payment
-        #    reuses the same pending order instead of creating a duplicate.
         order = None
         pending_id = session.get("pending_order_id")
         if pending_id:
@@ -3374,8 +3278,6 @@ def checkout():
             order.booking_fee, order.total = booking_fee, total
             order.status = "pending"
 
-        # 2. Snapshot the cart onto the order, replacing any earlier snapshot
-        #    so the order always mirrors what is being paid for right now.
         OrderItem.query.filter_by(order_id=order.id).delete()
         for c in cart:
             db.session.add(OrderItem(order_id=order.id, trek_id=c.trek_id,
@@ -3384,7 +3286,6 @@ def checkout():
                                      trek_date=c.trek_date, people=c.people, price=c.price))
         db.session.commit()
 
-        # 3. Run it through the sandbox gateway.
         if selected_method == "upi":
             upi_id = request.form.get("upi_id", "").strip()
             result = process_test_upi_payment(upi_id, total)
@@ -3396,7 +3297,6 @@ def checkout():
                                                request.form.get("cvv", ""), total)
             method_label = "Test card"
 
-        # 4. Record the attempt either way.
         payment = Payment(
             order_id=order.id,
             transaction_id=result.get("transaction_id") or f"FAIL-{uuid.uuid4().hex[:12].upper()}",
@@ -3540,9 +3440,7 @@ def signin():
 
 @app.route("/logout")
 def logout():
-    # Rotate the cart key so the next visitor on this browser starts with an
-    # empty guest cart. The rows stay in the database tagged with the user id,
-    # and merge_cart_into_account() pulls them back on the next sign-in.
+
     session.pop("user_id", None)
     session.pop("cart_key", None)
     session.pop("pending_order_id", None)
@@ -3580,9 +3478,6 @@ SUBJECT_OPTIONS = [
 
 @app.route("/contact", methods=["GET", "POST"])
 def contact():
-    """The form now validates, saves the enquiry, emails it to ENQUIRY_INBOX
-    and sends the writer an acknowledgement. On a validation error the page
-    comes back with what they typed still in the fields."""
     user = current_user()
     form = {
         "name": user.name if user else "",
@@ -3664,18 +3559,6 @@ def wiki_photo(filename, width=1400):
     return (f"https://commons.wikimedia.org/wiki/Special:FilePath/"
             f"{quote(filename)}?width={width}")
 
-
-# Every entry here is a photograph of that exact hill, not a generic mountain.
-# "local" is the file the user already has in the project folder; "remote" is
-# the Commons fallback used if the local file is missing.
-# Every entry here is a photograph of that exact hill, not a generic mountain.
-# "local" is the file the user already has in the project folder; "remote" is
-# the Commons fallback used if the local file is missing.
-#
-# "gallery" feeds the photo carousel on the detail page, in order. Each list is
-# specific to that trek - no photograph is shared between two treks. Any URL
-# that fails to load falls back to that trek's own remote photo, so the
-# carousel never shows a broken box.
 PHOTOS = {
     "kudremukh": {
         "local": "/kudremukh.jpg",
@@ -4094,9 +3977,6 @@ TREK_CODES = {
 
 
 def generate_order_ref(cart_items):
-    """A reference that identifies the booking at a glance - the trek and
-    the trek date - rather than an opaque hex string, while staying unique.
-    PEAK-KUD-19SEP-8F2A: Kudremukh, 19 September, unique suffix."""
     if cart_items:
         first = cart_items[0]
         code = TREK_CODES.get(first.trek_slug) or (first.trek_slug or "TRK")[:3].upper()
@@ -4115,12 +3995,8 @@ def generate_order_ref(cart_items):
         candidate = "-".join(parts + [uuid.uuid4().hex[:4].upper()])
         if not Order.query.filter_by(order_ref=candidate).first():
             return candidate
-    # Astronomically unlikely fallback: a longer random suffix.
     return "-".join(parts + [uuid.uuid4().hex[:10].upper()])
 
-
-# Current per-person fares, checked against comparable operator listings and
-# set a little under the going rate for each trail.
 CURRENT_PRICES = {
     "kudremukh": 2449,
     "kumara-parvatha": 2749,
@@ -4132,9 +4008,6 @@ CURRENT_PRICES = {
 
 
 def sync_prices():
-    """Push the current fare onto existing Trek rows, and onto any cart that
-    has not been paid for, so the same number shows on the card, the detail
-    page, the cart, checkout and the receipt. Paid orders are left alone."""
     changed = 0
     for slug, price in CURRENT_PRICES.items():
         trek = Trek.query.filter_by(slug=slug).first()
@@ -4152,9 +4025,6 @@ def sync_prices():
 
 
 def sync_photos():
-    """Push the current PHOTOS entries onto existing Trek rows so an already
-    seeded peak.db picks up the per-trek galleries used by the detail page,
-    without touching bookings, prices or any other trek content."""
     changed = 0
     for slug, shots in PHOTOS.items():
         trek = Trek.query.filter_by(slug=slug).first()
@@ -4173,8 +4043,6 @@ def sync_photos():
 
 
 def prepare_database():
-    """Create tables, and rebuild automatically if an older peak.db is found
-    with the previous schema, so you never have to delete the file by hand."""
     inspector = sa_inspect(db.engine)
 
     if "trek" in inspector.get_table_names():
@@ -4185,9 +4053,6 @@ def prepare_database():
 
     db.create_all()
 
-    # The contact form gained a phone number and a delivery flag. Add those to
-    # an existing enquiry table in place rather than dropping the database, so
-    # bookings already in peak.db survive the upgrade.
     inspector = sa_inspect(db.engine)
     if "enquiry" in inspector.get_table_names():
         have = {c["name"] for c in inspector.get_columns("enquiry")}
