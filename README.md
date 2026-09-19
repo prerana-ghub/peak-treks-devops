@@ -1,4 +1,4 @@
-# PEAK — Trek Booking App
+# PEAK — A Trek Booking App
 
 A Flask-based trek booking web application with a containerized CI/CD pipeline deployed on AWS EC2 using Ansible, Jenkins, Docker, Docker Hub and Kubernetes (k8s).
 
