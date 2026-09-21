@@ -1,0 +1,11 @@
+   .git
+   .venv
+   .env
+   .vscode
+   __pycache__
+   *.pyc
+   *.db
+   instance
+   docs
+   ansible
+   k8s
