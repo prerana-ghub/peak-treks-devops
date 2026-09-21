@@ -1,0 +1,72 @@
+
+{% extends "base.html" %}
+{% block title %}{{ 'Create your account' if mode == 'signup' else 'Sign in' }} — PEAK{% endblock %}
+
+{% block extra_css %}
+.auth{display:grid;grid-template-columns:1fr 1fr;min-height:640px;background:var(--surface);
+  border:1px solid var(--line);border-radius:var(--r-xl);overflow:hidden;
+  margin:clamp(40px,6vw,86px) auto;max-width:1120px;box-shadow:var(--shadow-lg)}
+/* 1) + 9) signin.jpg / signup.jpg, centred and covering the whole panel */
+.auth .art{position:relative;background-color:var(--stone);background-position:center center;
+  background-size:cover;background-repeat:no-repeat;display:flex;align-items:flex-end;padding:34px}
+.auth .art::after{content:"";position:absolute;inset:0;
+  background:linear-gradient(180deg,rgba(5,8,12,.25) 0%,rgba(5,8,12,.4) 40%,rgba(5,8,12,.92) 100%)}
+.auth .art .say{position:relative;z-index:2}
+.auth .art .say p{font-family:var(--serif);font-size:20px;line-height:1.4;color:#fff}
+.auth .art .say span{font-size:12.5px;letter-spacing:1.6px;text-transform:uppercase;color:#fff}
+.auth .side{padding:clamp(36px,4vw,62px)}
+@media (max-width:860px){.auth{grid-template-columns:1fr;margin:24px auto;min-height:0}
+  .auth .art{min-height:230px}.auth .side{padding:36px 26px}}
+{% endblock %}
+
+{% block body %}
+<div class="shell">
+  <div class="auth">
+    <div class="art" style="background-image:url('{{ art }}'),url('{{ art_fallback }}')">
+      
+    </div>
+
+    <div class="side">
+      <p class="kicker">{{ 'New here' if mode == 'signup' else 'Welcome back' }}</p>
+      <h1 style="font-size:36px;margin-bottom:10px">{{ 'Create your account' if mode == 'signup' else 'Sign in' }}</h1>
+      <p class="small" style="margin-bottom:28px">
+        {{ 'It takes a minute, and it keeps your bookings and receipts in one place.' if mode == 'signup'
+           else 'Use the email you booked with.' }}
+      </p>
+
+  <form method="POST">
+ <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+ <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="next" value="{{ next_url }}">
+        {% if mode == 'signup' %}
+        <div class="field"><label for="name">Full name</label>
+          <input id="name" type="text" name="name" value="{{ form.name }}" placeholder="As it should appear on the booking" required></div>
+        <div class="field"><label for="phone">Mobile number</label>
+          <input id="phone" type="tel" name="phone" value="{{ form.phone }}" placeholder="Optional, used on trek day"></div>
+        {% endif %}
+
+        <div class="field"><label for="email">Email</label>
+          <input id="email" type="email" name="email" value="{{ form.email }}" placeholder="you@example.com" required></div>
+
+        <div class="field"><label for="password">Password</label>
+          <input id="password" type="password" name="password"
+                 placeholder="{{ 'At least 6 characters' if mode == 'signup' else 'Your password' }}" required>
+          {% if mode == 'signup' %}<p class="hint">Six characters minimum. Nothing clever required.</p>{% endif %}
+        </div>
+
+        <button class="btn btn--primary btn--wide" type="submit">
+          {{ 'Create account' if mode == 'signup' else 'Sign in' }}
+        </button>
+      </form>
+
+      <p class="small" style="text-align:center;margin-top:22px">
+        {% if mode == 'signup' %}
+          Already booked with us? <a href="/signin" style="color:#fff;text-decoration:underline;font-weight:700">Sign in</a>
+        {% else %}
+          First time here? <a href="/signup" style="color:#fff;text-decoration:underline;font-weight:700">Create an account</a>
+        {% endif %}
+      </p>
+    </div>
+  </div>
+</div>
+{% endblock %}

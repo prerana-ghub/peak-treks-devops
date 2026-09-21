@@ -1,0 +1,389 @@
+
+{% extends "base.html" %}
+{% block title %}PEAK — weekend treks across Karnataka{% endblock %}
+
+{% block extra_css %}
+/* ---------- opening hero (home page only) ---------- */
+.hero{position:relative;isolation:isolate;min-height:min(94vh,940px);display:flex;align-items:center;
+  padding:clamp(88px,11vh,140px) var(--pad) clamp(60px,8vh,100px);overflow:hidden;
+  border-bottom:1px solid var(--line)}
+/* 9) hero photo is centred and covers the whole band */
+.hero-bg{position:absolute;inset:0;z-index:-2;background-image:url("/static/home-hero.jpg"),url("{{ hero_photo }}");
+  background-size:cover;background-position:center center;background-repeat:no-repeat;
+  filter:saturate(1.02) contrast(1.04)}
+.hero-veil{position:absolute;inset:0;z-index:-1;
+  background:
+    linear-gradient(90deg,rgba(5,8,12,.25) 0%,rgba(5,8,12,.1) 34%,rgba(5,8,12,.46) 66%,rgba(5,8,12,.68) 100%),
+    linear-gradient(180deg,rgba(5,8,12,.25) 0%,rgba(5,8,12,.10) 34%,rgba(5,8,12,.55) 72%,var(--bg) 100%)}
+.hero-glow{position:absolute;inset:auto -10% -40% auto;width:60vw;height:60vw;z-index:-1;pointer-events:none;
+  background:radial-gradient(circle,rgba(255,255,255,.07),transparent 62%)}
+.hero-inner{position:relative;z-index:2;width:100%;max-width:var(--shell);margin:0 auto}
+.hero .eyebrow{display:inline-flex;align-items:center;gap:10px;padding:9px 18px;margin-bottom:26px;
+  border-radius:var(--r-full);font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
+  color:#fff;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.34);
+  backdrop-filter:blur(8px)}
+.hero .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:#fff}
+.hero .display{max-width:15ch;margin-bottom:24px;color:#fff;
+  text-shadow:0 2px 40px rgba(0,0,0,.65),0 1px 3px rgba(0,0,0,.5)}
+.hero .display em{font-style:normal;color:#fff}
+.hero p.sub{max-width:52ch;color:#dbe6ef;font-size:clamp(17px,1.35vw,20px);line-height:1.7;margin-bottom:38px;
+  text-shadow:0 1px 18px rgba(0,0,0,.7)}
+.hero .btn--ghost{background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.75);color:#fff;
+  backdrop-filter:blur(8px)}
+.hero .btn--ghost:hover{background:rgba(255,255,255,.16);border-color:#fff;color:#fff}
+.hero-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:clamp(18px,2vw,30px);
+  margin-top:clamp(44px,6vh,72px);padding:clamp(22px,2.2vw,30px) clamp(24px,2.6vw,38px);
+  border:1px solid rgba(255,255,255,.14);border-radius:var(--r-xl);
+  background:rgba(9,13,19,.52);backdrop-filter:blur(16px);box-shadow:var(--shadow-lg)}
+.hero-stats .stat b{color:#fff;font-size:clamp(28px,2.4vw,40px)}
+.hero-stats .stat span{color:#a9b8c6;font-size:13px}
+.hero-scroll{position:absolute;left:50%;bottom:26px;transform:translateX(-50%);z-index:2;
+  color:#8fa0b0;font-size:11.5px;letter-spacing:2px;text-transform:uppercase;text-decoration:none}
+@media (max-width:760px){
+  .hero{min-height:auto;padding-top:clamp(70px,12vh,110px)}
+  .hero .display{max-width:none}
+  .hero-scroll{display:none}
+}
+
+/* ---------- home sections ---------- */
+.steps{counter-reset:s;display:grid;gap:var(--gap);grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.step{position:relative;padding:46px 34px 36px;
+  background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,0)),var(--surface);
+  border:1px solid var(--line);border-radius:var(--r-xl);box-shadow:var(--shadow)}
+.step::before{counter-increment:s;content:counter(s);position:absolute;top:-21px;left:34px;width:42px;height:42px;
+  display:grid;place-items:center;border-radius:50%;
+  background:#fff;border:1px solid #fff;color:var(--brand-ink);
+  font-weight:800;font-size:15px;box-shadow:0 10px 24px rgba(0,0,0,.5)}
+.step h3{font-size:21px;margin:0 0 12px}
+.step p{color:var(--text-2);font-size:14.5px;line-height:1.7}
+.quote{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-xl);
+  padding:36px 32px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.quote::before{content:"";position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,rgba(255,255,255,.75),transparent)}
+.quote p{font-family:var(--serif);font-size:21px;line-height:1.5;letter-spacing:-.5px;margin-bottom:26px;color:var(--text)}
+.quote .who{display:flex;align-items:center;gap:12px}
+.quote .who .avatar{width:38px;height:38px;font-size:13px}
+.quote .who b{display:block;font-size:14px}
+.quote .who span{font-size:12px;color:var(--muted)}
+.season{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1px;background:var(--line);
+  border:1px solid var(--line);border-radius:var(--r-xl);overflow:hidden}
+.season div{background:var(--surface);padding:34px 30px;transition:background .25s}
+.season div:hover{background:var(--surface-3)}
+.season h4{font-family:var(--serif);font-size:22px;margin-bottom:12px;color:#fff;font-weight:700}
+.season p{font-size:14px;line-height:1.7;color:var(--text-2)}
+/* 8) "Book a weekend departure" panel now uses booktrek.jpg, centred and
+   covering the full box, behind a readable scrim. 7) 1px white hairline. */
+.cta{position:relative;margin:0 var(--pad) clamp(70px,8vw,120px);padding:clamp(64px,9vw,120px) 34px;
+  border-radius:var(--r-2xl);text-align:center;
+  border:1px solid var(--line-strong);overflow:hidden;isolation:isolate;
+  background-image:linear-gradient(180deg,rgba(5,7,10,.62),rgba(5,7,10,.78)),
+                   url("{{ cta_photo }}"),url("{{ cta_photo_fallback }}");
+  background-size:cover;background-position:center center;background-repeat:no-repeat;
+  box-shadow:var(--shadow-lg)}
+.cta h2{max-width:20ch;margin:0 auto 16px;color:#fff}
+.cta p{color:#d6e2ec;font-size:17px;max-width:54ch;margin:0 auto 38px}
+{% endblock %}
+
+{% block body %}
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-veil"></div>
+  <div class="hero-glow"></div>
+  <div class="hero-inner">
+    <span class="eyebrow"><span class="dot"></span>Departures every Saturday and Sunday</span>
+    <h1 class="display">Some weekends need a little altitude.</h1>
+    <p class="sub">
+      Guided weekend treks in Karnataka. {{ trek_count }} trails, batches capped at fifteen, two guides
+      on every departure, and permits and transport already in the price.
+    </p>
+    <div class="row">
+      <a href="/treks" class="btn btn--primary">Browse treks</a>
+      <a href="#how" class="btn btn--ghost">How booking works</a>
+      <a href="#grades" class="btn btn--ghost">Which grade suits me</a>
+    </div>
+
+    <div class="hero-stats">
+      <div class="stat"><b>{{ trek_count }}</b><span>Trails running this season</span></div>
+      <div class="stat"><b>{{ trekker_count }}+</b><span>Trekkers taken out since 2021</span></div>
+      <div class="stat"><b>15</b><span>Maximum batch size</span></div>
+      <div class="stat"><b>2</b><span>Guides on every departure</span></div>
+    </div>
+  </div>
+  <a href="#how" class="hero-scroll">Scroll</a>
+</section>
+
+<section class="section section--tight section--surface">
+  <div class="shell">
+    <div class="head" style="max-width:none;margin-bottom:26px">
+      <p class="kicker">Start here</p>
+      <h2>Booking a trek takes four steps</h2>
+      <p class="lede" style="margin-top:12px">
+        Everything happens on this site. No phone calls, no deposit over UPI to a stranger, no
+        WhatsApp group you have to join before you know the price.
+      </p>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <h3>Pick a trail</h3>
+        <p>Each trek page lists the real distance, the maximum altitude, where the walk starts and
+          where it ends, and an hour-by-hour plan for the day. Read the grade before the price.</p>
+      </div>
+      <div class="step">
+        <h3>Choose a weekend</h3>
+        <p>Pick a departure date and the number of trekkers in your group. Slots are checked against
+          that trail's permit quota before the booking is confirmed.</p>
+      </div>
+      <div class="step">
+        <h3>Pay online</h3>
+        <p>Card or UPI. The price on the page is the price you pay, including GST, the booking fee,
+          forest permits and gate fees. Nothing is collected at the trailhead.</p>
+      </div>
+      <div class="step">
+        <h3>Get your brief</h3>
+        <p>A receipt arrives immediately. Two days before departure you get the pickup point, the
+          reporting time, your guide's number and a packing list for that specific trail.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="shell">
+    <div class="head row row--between" style="max-width:none;align-items:flex-end">
+      <div>
+        <p class="kicker">This season</p>
+        <h2>TREKS</h2>
+        <p class="lede" style="margin-top:12px">
+          Saturday and Sunday departures, each with a lead guide and a sweep guide.
+        </p>
+      </div>
+      <a href="/treks" class="btn btn--ghost btn--sm">See all {{ trek_count }} treks</a>
+    </div>
+
+    <div class="grid g-3">
+      {% for trek in featured %}{% include "_trek_card.html" %}{% endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="section" id="how">
+  <div class="shell">
+    <div class="head">
+      <p class="kicker">How we operate</p>
+      <h2>Small groups and accurate grading</h2>
+      <p class="lede" style="margin-top:12px">
+        Batches are capped, trails are graded from a recent walk, and permits are arranged in advance.
+      </p>
+    </div>
+    <div class="grid g-4">
+      <div class="card">
+        <h3>Graded honestly</h3>
+        <p class="small" style="margin-top:10px">Every trail is re-walked at the start of a season, and the
+          grade comes from that walk, not a brochure. Savandurga is marked difficult because the granite is
+          loose and exposed in three sections; if monsoon damage or a landslide changes a route, the grade is
+          updated before the next batch goes out, not after someone gets caught out by it.</p>
+      </div>
+      <div class="card">
+        <h3>Capped group size</h3>
+        <p class="small" style="margin-top:10px">Between six and fifteen trekkers per batch, with a lead
+          guide at the front and a sweep guide at the back regardless of group size — never just one guide.
+          Both carry a first-aid kit and a whistle, and headcounts are taken at every rest point and trail
+          junction, not only at the start and the end.</p>
+      </div>
+      <div class="card">
+        <h3>Permits sorted</h3>
+        <p class="small" style="margin-top:10px">Kudremukh and Kumara Parvatha sit inside reserve forest, so
+          entries need a forest department permit and a capped daily quota, arranged in advance using the ID
+          details from your booking. Savandurga and Skandagiri need only a gate fee, paid at the base. Either
+          way, it's in the price you see — nothing extra to queue for or pay at the checkpost.</p>
+      </div>
+      <div class="card">
+        <h3>Leave no trace</h3>
+        <p class="small" style="margin-top:10px">Every trekker gets a waste bag at the base, and it's checked
+          at the end, not just handed out — wrappers, peels and everything else that went up comes back down.
+          No cooking fires or single-use plastic on any of our routes, and rest stops are chosen away from
+          water sources so run-off stays clean for whoever's downstream.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="grades">
+  <div class="shell">
+    <div class="head">
+      <p class="kicker">Grading</p>
+      <h2>What easy, moderate and difficult mean here</h2>
+      <p class="lede" style="margin-top:12px">
+        A grade is about the terrain and the exposure, not only the distance. A short trek can be
+        graded difficult, and a long one can be fine for a first-timer.
+      </p>
+    </div>
+    <div class="grid g-3">
+      <div class="card">
+        <h3>Easy</h3>
+        <p class="small" style="margin-top:10px">Under 6 km, a marked path the whole way, and no section
+          where a slip matters. If you can walk for two hours without stopping, you can do these. Nandi
+          Hills and the shorter sunrise walks sit here. Good for a first trek, for children over ten,
+          and for anyone coming back after a long gap.</p>
+        <div class="row" style="margin-top:18px">
+          <span class="pill">2 to 4 hours</span><span class="pill pill--muted">No scrambling</span>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Moderate</h3>
+        <p class="small" style="margin-top:10px">6 to 12 km with a continuous climb, some loose rock and
+          a few short stretches where you use your hands. Skandagiri and Kodachadri are here. You want
+          shoes with real grip and the ability to keep walking uphill for three hours. Most of our
+          trekkers book this grade.</p>
+        <div class="row" style="margin-top:18px">
+          <span class="pill">4 to 7 hours</span><span class="pill pill--muted">Some exposure</span>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Difficult</h3>
+        <p class="small" style="margin-top:10px">Long days, sustained steep ground, exposed rock and no
+          quick way down once you are committed. Savandurga and Kumara Parvatha are graded this way.
+          You need prior trekking experience and honest fitness. We will say no at the briefing if the
+          group is not ready for it.</p>
+        <div class="row" style="margin-top:18px">
+          <span class="pill">7 to 12 hours</span><span class="pill pill--muted">Experience needed</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section section--surface">
+  <div class="shell">
+    <div class="pair">
+      <div>
+        <p class="kicker">What you get</p>
+        <h2 style="margin-bottom:18px">Included in every price on this site</h2>
+        <ul class="ticklist">
+          <li>A lead guide at the front and a sweep guide at the back, on every single departure</li>
+          <li>Forest department permits where the trail needs one, and gate fees where it does not</li>
+          <li>Transport from the Bengaluru pickup point to the base and back, on the trails we run that way</li>
+          <li>Breakfast or a packed meal, and drinking water refills at the planned stops</li>
+          <li>A first-aid kit with both guides, and a route plan left with our office before you set off</li>
+          <li>GST, the booking fee and your receipt, with nothing collected at the trailhead</li>
+        </ul>
+      </div>
+      <div>
+      <br><br>
+        <p class="kicker">What to bring</p>
+        <h2 style="margin-bottom:18px">Carried by you</h2>
+        <ul class="ticklist no">
+          <li>Shoes with a real grip sole. Running shoes are the single most common reason someone turns back</li>
+          <li>Two litres of water minimum, three on the exposed granite trails in summer</li>
+          <li>A headtorch for the night starts, with the batteries checked before you leave home</li>
+          <li>A windproof layer. The top is always colder than the base, even in March</li>
+          <li>A government photo ID, which is required at every forest checkpost</li>
+          <li>Personal medication, and a word to your guide at the briefing about anything relevant</li>
+        </ul>
+        
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="shell">
+    <div class="head">
+      <p class="kicker">Planning</p>
+      <h2>Choosing a season</h2>
+      <p class="lede" style="margin-top:12px">
+        The same hill is a different trek in July and in January. If your dates are flexible, this is
+        the part worth reading before you pick a weekend.
+      </p>
+    </div>
+    <div class="season">
+      <div><h4>June to September</h4><p>Peak monsoon. Streams run hard, leeches are everywhere and visibility
+        drops to nothing. Most high trails stay shut.</p></div>
+      <div><h4>October to November</h4><p>The best window. Grasslands are green, skies clear after the rain,
+        and the whole ridge line is visible from the top.</p></div>
+      <div><h4>December to February</h4><p>Cold mornings, dry trails, long views. Ideal for first-timers and
+        for the longer Kumara Parvatha climb.</p></div>
+      <div><h4>March to May</h4><p>Hot and exposed. Start before sunrise, carry more water than you think,
+        and stick to the shorter rock climbs.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="shell">
+    <div class="head">
+      <p class="kicker">Reviews</p>
+      <h2>From recent departures</h2>
+    </div>
+    <div class="grid g-3">
+      <div class="quote">
+        <p>First trek of my life and I never once felt like the slowest person there. The sweep guide
+          stayed with our group the whole way up.</p>
+        <div class="who"><span class="avatar">AR</span><div><b>Ananya R.</b><span>Skandagiri, November</span></div></div>
+      </div>
+      <div class="quote">
+        <p>Kumara Parvatha nearly finished me, and the briefing told me it would. Glad they did not
+          sugarcoat it. Bhattara Mane food was the highlight.</p>
+        <div class="who"><span class="avatar">VK</span><div><b>Vikram K.</b><span>Kumara Parvatha, December</span></div></div>
+      </div>
+      <div class="quote">
+        <p>Booked on a Thursday, on the rock by Saturday morning. Receipt, pickup point and packing
+          list all arrived without me chasing anyone.</p>
+        <div class="who"><span class="avatar">SM</span><div><b>Sneha M.</b><span>Savandurga, January</span></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section section--surface">
+  <div class="shell">
+    <div class="head">
+      <p class="kicker">Before you book</p>
+      <h2>The questions we get most</h2>
+    </div>
+    <div class="grid g-2">
+      <div class="panel">
+        <h4 style="margin-bottom:10px">I have never trekked before. Where do I start?</h4>
+        <p class="small">An easy or moderate grade, and ideally a trek with a daylight start. Skandagiri
+          is a night climb, which is beautiful but is not the gentlest first outing. Tell us at booking
+          and we will say plainly whether the trail you picked is the right one.</p>
+      </div>
+      <div class="panel">
+        <h4 style="margin-bottom:10px">Can I change my date?</h4>
+        <p class="small">Yes, up to 72 hours before departure, subject to a slot being free on the new
+          date. Write to us from the email you booked with and mention the booking reference on your
+          receipt.</p>
+      </div>
+      <div class="panel">
+        <h4 style="margin-bottom:10px">What happens if the weather turns?</h4>
+        <p class="small">We call it the evening before and tell everyone in the batch at the same time.
+          If we cancel a departure, you choose between a full refund and a free move to another date.
+          A guide can also stop a group mid-trail, and that call is final.</p>
+      </div>
+      <div class="panel">
+        <h4 style="margin-bottom:10px">Is it safe to trek solo with you?</h4>
+        <p class="small">Most people who book do it alone. You are in a batch of six to fifteen with two
+          guides, and headcounts are taken at every rest point and trail junction rather than only at
+          the start and the finish.</p>
+      </div>
+      <div class="panel">
+        <h4 style="margin-bottom:10px">Are there age limits?</h4>
+        <p class="small">Ten and above for easy trails with an adult, sixteen and above for the difficult
+          grades. There is no upper limit. What matters is being able to walk uphill for the number of
+          hours listed on the trek page.</p>
+      </div>
+      <div class="panel">
+        <h4 style="margin-bottom:10px">Do you take group or private bookings?</h4>
+        <p class="small">Ten or more trekkers, or a private batch on a date of your choosing, is quoted
+          separately. Mention it on the contact form and we will come back with dates and a price.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="cta">
+  <h2>Book a weekend departure</h2>
+  <p>Pick a trail, pick a weekend, and we will handle the permits, the transport and the guiding.</p>
+  <a href="/treks" class="btn btn--primary" style="margin-top:20px">See available treks</a>
+</section>
+{% endblock %}

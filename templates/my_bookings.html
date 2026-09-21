@@ -1,0 +1,64 @@
+
+{% extends "base.html" %}
+{% block title %}My bookings — PEAK{% endblock %}
+
+{% block extra_css %}
+.b-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-xl);padding:32px;
+  margin-bottom:20px;box-shadow:var(--shadow)}
+.b-top{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:flex-start;margin-bottom:22px;
+  padding-bottom:22px;border-bottom:1px solid var(--line)}
+.b-ref{font-family:var(--serif);font-size:23px;letter-spacing:-.5px}
+.tally{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1px;background:var(--line);
+  border:1px solid var(--line);border-radius:var(--r-xl);overflow:hidden;
+  margin-bottom:clamp(40px,5vw,60px);box-shadow:var(--shadow)}
+.tally div{background:var(--surface);padding:28px}
+.tally span{display:block;font-size:12.5px;color:var(--muted);margin-bottom:4px}
+.tally b{font-family:var(--serif);font-size:34px;letter-spacing:-1px}
+{% endblock %}
+
+{% block body %}
+<section class="section section--tight">
+  <div class="shell">
+    <h1 style="margin-bottom:10px">My bookings</h1>
+    <p class="lede" style="margin-bottom:34px">Every trek you have booked, paid for or attempted, newest first.</p>
+
+    <div class="tally">
+      <div><span>Confirmed treks</span><b>{{ stats.paid }}</b></div>
+      <div><span>Trekkers booked</span><b>{{ stats.people }}</b></div>
+      <div><span>Total spent</span><b>&#8377;{{ stats.spent }}</b></div>
+      <div><span>Unfinished payments</span><b>{{ stats.failed }}</b></div>
+    </div>
+
+    {% if orders %}
+      {% for order in orders %}
+      <div class="b-card">
+        <div class="b-top">
+          <div>
+            <div class="b-ref">{{ order.order_ref }}</div>
+            <p class="small">Booked {{ order.created_at.strftime('%d %b %Y, %I:%M %p') }}</p>
+          </div>
+          <div class="row">
+            <span class="pill {{ 'pill--ok' if order.status == 'paid' else 'pill--bad' }}">{{ order.status }}</span>
+            <a href="/order/{{ order.id }}/confirmation" class="btn btn--ghost btn--sm">View receipt</a>
+          </div>
+        </div>
+        {% for item in order.items() %}
+        <div class="line">
+          <span><b style="color:var(--text)">{{ item.trek_name }}</b><br>
+            <span class="small">{{ item.trek_date|pretty_date }} &nbsp;|&nbsp; {{ item.people }} trekker{{ '' if item.people == 1 else 's' }}</span></span>
+          <b>&#8377;{{ item.subtotal() }}</b>
+        </div>
+        {% endfor %}
+        <div class="line line--total"><span>{{ 'Paid' if order.status == 'paid' else 'Not paid' }}</span><b>&#8377;{{ order.total }}</b></div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty card">
+        <h2>No bookings yet</h2>
+        <p>Once you book a trail it will live here, with the receipt and the trek brief.</p>
+        <a href="/treks" class="btn btn--primary">Browse treks</a>
+      </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

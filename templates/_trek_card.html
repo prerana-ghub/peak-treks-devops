@@ -1,0 +1,25 @@
+
+<article class="trek-card">
+  <a href="/trek/{{ trek.slug }}" class="shot">
+    <img src="{{ trek.image_url }}" alt="{{ trek.name }}"
+         onerror="this.onerror=null;this.src='{{ trek.fallback_image }}'">
+    <span class="tags">
+      <span class="pill">{{ trek.difficulty_band }}</span>
+      <span class="pill pill--muted">{{ trek.rating }} rating</span>
+    </span>
+  </a>
+  <div class="body">
+    <div class="where">{{ trek.location }}</div>
+    <h3>{{ trek.name }}</h3>
+    <p class="desc">{{ trek.tagline }}</p>
+    <div class="specs">
+      <div><span>Time</span><b>{{ trek.duration }}</b></div>
+      <div><span>Distance</span><b>{{ trek.distance }}</b></div>
+      <div><span>Height</span><b>{{ trek.altitude }}</b></div>
+    </div>
+    <div class="row row--between card-foot">
+      <div><span class="price">&#8377;{{ trek.price }}</span> <sub class="small">per person</sub></div>
+      <a href="/trek/{{ trek.slug }}" class="btn btn--outline btn--sm">View trek</a>
+    </div>
+  </div>
+</article>

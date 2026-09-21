@@ -1,0 +1,101 @@
+
+{% extends "base.html" %}
+{% block title %}Booking {{ order.order_ref }} — PEAK{% endblock %}
+
+{% block extra_css %}
+.done{text-align:center;max-width:640px;margin:0 auto clamp(40px,5vw,60px)}
+.done .lede{margin-left:auto;margin-right:auto}
+.mark{width:84px;height:84px;margin:0 auto 26px;border-radius:50%;display:grid;place-items:center;font-size:36px}
+.mark.ok{background:rgba(255,255,255,.16);border:1px solid #fff;color:#fff;font-weight:800;
+  box-shadow:0 0 44px rgba(255,255,255,.14)}
+.mark.no{background:transparent;border:1px solid var(--line);color:var(--muted);font-weight:600}
+.steps-bar{display:flex;gap:12px;align-items:center;justify-content:center;font-size:13.5px;color:var(--muted);
+  margin-bottom:40px;flex-wrap:wrap}
+.steps-bar b{color:var(--text)}
+.ticket{display:grid;grid-template-columns:140px minmax(0,1fr) auto;gap:24px;align-items:center;
+  padding:22px 0;border-bottom:1px solid var(--line)}
+.ticket img{width:140px;height:100px;object-fit:cover;border-radius:var(--r-md)}
+.ticket b{font-size:17px}
+@media (max-width:680px){.ticket{grid-template-columns:1fr}.ticket img{width:100%;height:190px}}
+.next li{margin-bottom:14px}
+{% endblock %}
+
+{% block body %}
+<section class="section section--tight">
+  <div class="shell shell--narrow">
+    <div class="steps-bar"><span>1. Cart</span><span>&rarr;</span><span>2. Checkout</span><span>&rarr;</span><b>3. Confirmation</b></div>
+
+    <div class="done">
+      {% if paid %}
+        <div class="mark ok">&#10003;</div>
+        <h1>Booking confirmed</h1>
+        <p class="lede" style="margin:12px auto 0">
+          Reference <b style="color:var(--text)">{{ order.order_ref }}</b>. A receipt with the full
+          breakdown has been sent to {{ order.email }}.
+        </p>
+      {% else %}
+        <div class="mark no">!</div>
+        <h1>Payment not completed</h1>
+        <p class="lede" style="margin:12px auto 0">
+          Reference {{ order.order_ref }} is saved as unpaid and no slot is held. Your cart is unchanged,
+          so you can retry the payment.
+        </p>
+      {% endif %}
+    </div>
+
+    <div class="card" style="margin-bottom:20px">
+      <h3 style="margin-bottom:18px">Booking details</h3>
+      <div class="line"><span>Reference</span><b>{{ order.order_ref }}</b></div>
+      <div class="line"><span>Booked on</span><b>{{ order.created_at.strftime('%d %b %Y, %I:%M %p') }}</b></div>
+      <div class="line"><span>Paid with</span><b>{{ payment.method }}{% if payment.upi_id %} ({{ payment.upi_id }}){% endif %}</b></div>
+      <div class="line"><span>Payment status</span>
+        <span class="pill {{ 'pill--ok' if paid else 'pill--bad' }}">{{ payment.status }}</span></div>
+      <div class="line"><span>Transaction ID</span><b>{{ payment.transaction_id }}</b></div>
+      <div class="line"><span>Contact</span><b>{{ order.phone }}</b></div>
+    </div>
+
+    <div class="card" style="margin-bottom:20px">
+      <h3 style="margin-bottom:12px">Your treks</h3>
+      {% for item in order.items() %}
+      <div class="ticket">
+        <img src="{{ item.image_url }}" alt="{{ item.trek_name }}" onerror="this.style.visibility='hidden'">
+        <div>
+          <b>{{ item.trek_name }}</b>
+          <p class="small">{{ item.location }}</p>
+          <p class="small">{{ item.trek_date|pretty_date }} &nbsp;|&nbsp; {{ item.people }} trekker{{ '' if item.people == 1 else 's' }}</p>
+        </div>
+        <b class="price" style="font-size:18px">&#8377;{{ item.subtotal() }}</b>
+      </div>
+      {% endfor %}
+      <div style="margin-top:18px">
+        <div class="line"><span>Subtotal</span><b>&#8377;{{ order.subtotal }}</b></div>
+        <div class="line"><span>GST at 5%</span><b>&#8377;{{ order.gst }}</b></div>
+        <div class="line"><span>Booking fee</span><b>&#8377;{{ order.booking_fee }}</b></div>
+        <div class="line line--total"><span>{{ 'Total paid' if paid else 'Amount due' }}</span><b>&#8377;{{ order.total }}</b></div>
+      </div>
+    </div>
+
+    {% if paid %}
+    <div class="card" style="margin-bottom:26px">
+      <h3 style="margin-bottom:14px">What happens next</h3>
+      <ul class="ticklist next">
+        <li>A receipt with this reference is in your inbox.</li>
+        <li>Your pre-trek brief is emailed two days before departure.</li>
+        <li>Arrive 30 minutes before the listed start time; forest checkposts verify photo ID.</li>
+        <li>Date changes and cancellations are free up to 72 hours before departure.</li>
+      </ul>
+    </div>
+    {% endif %}
+
+    <div class="row">
+      {% if paid %}
+        <a href="/bookings" class="btn btn--primary">See all my bookings</a>
+        <a href="/treks" class="btn btn--ghost">Book another trek</a>
+      {% else %}
+        <a href="/checkout" class="btn btn--primary">Try payment again</a>
+        <a href="/cart" class="btn btn--ghost">Back to cart</a>
+      {% endif %}
+    </div>
+  </div>
+</section>
+{% endblock %}

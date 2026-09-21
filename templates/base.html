@@ -1,0 +1,436 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}PEAK{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400..700&family=Plus+Jakarta+Sans:wght@300..800&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* ---------------------------------------------------------------
+     PEAK dark system.
+     Ink base (near-black with a blue cast), glacier teal as the single
+     interactive accent, ember orange reserved for money and kickers.
+     Every component below reads from these tokens, so the palette can
+     be retuned in one place without touching any page.
+     --------------------------------------------------------------- */
+  --bg:#07090c;
+  --bg-2:#0a0d11;
+  --surface:#11151b;
+  --surface-2:#0c1015;
+  --surface-3:#171c23;
+  --stone:#1b2027;
+  --fill:#161b21;
+
+  /* ONE colour family only: white on near-black. Nothing is coloured.
+     Hierarchy is carried by SIZE, WEIGHT, OPACITY and BORDER strength,
+     never by hue, so the whole site reads as a single neutral system. */
+  --brand:#ffffff;
+  --brand-dark:#e8e8e8;
+  --brand-light:#ffffff;
+  --brand-ink:#0a0d12;
+  --brand-soft:rgba(255,255,255,.10);
+
+  --accent:#ffffff;
+  --accent-soft:rgba(255,255,255,.10);
+  --green:#ffffff;
+  --red:#ffffff;
+
+  --text:#f4f6f8;
+  --text-2:#c6cdd4;
+  --muted:#8b949e;
+
+  /* the single uniform hairline used on every button, box and panel */
+  --line:rgba(255,255,255,.22);
+  --line-strong:rgba(255,255,255,.34);
+
+  --shadow-sm:0 1px 2px rgba(0,0,0,.45);
+  --shadow:0 2px 6px rgba(0,0,0,.35),0 18px 44px rgba(0,0,0,.45);
+  --shadow-lg:0 34px 80px rgba(0,0,0,.62);
+  --ring:0 0 0 1px rgba(255,255,255,.34);
+  --glow:0 0 0 1px rgba(255,255,255,.3),0 18px 46px rgba(255,255,255,.06);
+
+  --r-sm:12px; --r-md:16px; --r-lg:22px; --r-xl:28px; --r-2xl:34px; --r-full:999px;
+  /* Plus Jakarta Sans carries the UI and body copy. Space Grotesk gives
+     headings a sharper, more distinctive display face. */
+  --sans:'Plus Jakarta Sans',system-ui,sans-serif;
+  --serif:'Space Grotesk','Plus Jakarta Sans',system-ui,sans-serif;
+  --pad:clamp(20px,4vw,64px);
+  --gap:clamp(22px,2vw,32px);
+  --glass:rgba(255,255,255,.045);
+  --shell:1560px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%;background:var(--bg);color-scheme:dark}
+body{font-family:var(--sans);color:var(--text);font-size:16.5px;line-height:1.7;font-weight:400;
+  -webkit-font-smoothing:antialiased;overflow-x:hidden;
+  background:
+    radial-gradient(1100px 620px at 8% -8%,rgba(255,255,255,.05),transparent 62%),
+    radial-gradient(900px 560px at 96% 4%,rgba(255,255,255,.035),transparent 60%),
+    var(--bg);
+  background-attachment:fixed}
+a{color:inherit}
+img{max-width:100%;display:block}
+/* 9) every photograph on the site fills the box it is given and is
+   anchored dead centre, so nothing is ever cropped off to one side. */
+img{object-fit:cover;object-position:center center}
+::selection{background:rgba(255,255,255,.26);color:#fff}
+:focus-visible{outline:2px solid var(--brand);outline-offset:3px;border-radius:6px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ---------- type ---------- */
+h1,h2,h3,h4{font-family:var(--serif);font-weight:600;line-height:1.08;letter-spacing:-.8px;color:var(--text)}
+.display{font-size:clamp(46px,6.2vw,92px);font-weight:700;line-height:.98;letter-spacing:-3px}
+h1{font-size:clamp(34px,4.6vw,58px);letter-spacing:-1.4px}
+h2{font-size:clamp(28px,3.2vw,44px);letter-spacing:-1.1px}
+h3{font-size:22px;letter-spacing:-.5px}
+h4{font-size:17px;letter-spacing:-.3px}
+p{max-width:74ch}
+.lede{color:var(--text-2);font-size:18px;line-height:1.75;max-width:62ch}
+.small{font-size:13.5px;color:var(--muted);line-height:1.65}
+.kicker{display:inline-block;color:var(--muted);font-size:12px;font-weight:700;
+  letter-spacing:2px;text-transform:uppercase;margin-bottom:14px}
+.serif-i{font-style:italic}
+.tint{color:#fff;font-weight:700}
+
+/* ---------- layout ---------- */
+.shell{max-width:var(--shell);margin:0 auto;padding-left:var(--pad);padding-right:var(--pad);width:100%}
+.shell--narrow{max-width:980px}
+.section{padding:clamp(66px,8vw,118px) 0}
+.section--tight{padding:clamp(40px,5vw,68px) 0}
+.section--surface{background:var(--surface-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.head{max-width:720px;margin-bottom:clamp(34px,4vw,56px)}
+.head--center{margin-left:auto;margin-right:auto;text-align:center}
+.grid{display:grid;gap:var(--gap)}
+.g-2{grid-template-columns:repeat(auto-fit,minmax(360px,1fr))}
+.g-3{grid-template-columns:repeat(auto-fit,minmax(360px,1fr))}
+.g-4{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.row{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.row--between{justify-content:space-between}
+.spacer{flex:1}
+
+/* ---------- buttons ---------- */
+/* 7) EVERY button carries the same 1px white hairline. The three variants
+   differ only in fill and text weight, never in colour. */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;padding:15px 30px;
+  border:1px solid var(--line-strong);border-radius:var(--r-sm);font:inherit;font-size:14.5px;font-weight:700;
+  line-height:1.2;letter-spacing:.1px;text-decoration:none;cursor:pointer;
+  transition:background .18s ease,color .18s ease,border-color .18s ease,box-shadow .18s ease,transform .18s ease}
+.btn--primary{background:#fff;color:var(--brand-ink);border:1px solid #fff;font-weight:800;
+  box-shadow:0 10px 28px rgba(0,0,0,.45)}
+.btn--primary:hover{transform:translateY(-1px);background:#eef1f4;border-color:#eef1f4;
+  box-shadow:0 16px 38px rgba(0,0,0,.55)}
+.btn--ghost{background:var(--glass);border-color:var(--line-strong);color:var(--text)}
+.btn--ghost:hover{border-color:#fff;background:rgba(255,255,255,.12);box-shadow:var(--ring)}
+.btn--outline{background:transparent;border-color:var(--line-strong);color:var(--text)}
+.btn--outline:hover{background:rgba(255,255,255,.12);border-color:#fff;box-shadow:var(--ring)}
+.btn--sm{padding:11px 22px;font-size:13.5px}
+.btn--wide{width:100%}
+.btn--danger{background:none;border:1px solid var(--line);color:var(--muted);padding:9px 16px;
+  font-size:12.5px;font-weight:600}
+.btn--danger:hover{border-color:#fff;color:var(--text)}
+
+/* ---------- surfaces ---------- */
+.card{background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,0)),var(--surface);
+  border:1px solid var(--line);border-radius:var(--r-xl);
+  padding:clamp(26px,2.4vw,36px);box-shadow:var(--shadow)}
+.card--flat{box-shadow:none}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:28px}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:7px 15px;border-radius:var(--r-full);
+  font-size:12.5px;font-weight:600;letter-spacing:.1px;
+  border:1px solid var(--line-strong);color:var(--text-2);background:rgba(255,255,255,.05)}
+.pill--muted{color:var(--muted);border-color:var(--line)}
+/* status pills: separated by weight and border strength, not by colour */
+.pill--brand{border-color:#fff;color:var(--text);background:rgba(255,255,255,.12);font-weight:700}
+.pill--ok{border-color:#fff;color:#fff;background:rgba(255,255,255,.16);font-weight:800}
+.pill--bad{border-color:var(--line);color:var(--muted);background:transparent;font-weight:600;
+  text-decoration:line-through}
+.divider{height:1px;background:var(--line);border:0;margin:32px 0}
+
+/* ---------- navbar ---------- */
+.nav{position:sticky;top:0;z-index:200;height:82px;display:flex;align-items:center;justify-content:space-between;
+  gap:20px;padding:0 var(--pad);background:rgba(8,11,17,.78);backdrop-filter:blur(18px) saturate(1.3);
+  border-bottom:1px solid var(--line)}
+.brand{font-family:var(--serif);font-size:27px;font-weight:600;letter-spacing:.6px;text-decoration:none;color:var(--text)}
+.brand i{color:var(--text);font-style:normal}
+.nav-links{display:flex;align-items:center;gap:34px}
+.nav-links a.navlink{position:relative;color:var(--muted);text-decoration:none;font-size:14.5px;font-weight:500;
+  padding:6px 0;transition:color .18s}
+.nav-links a.navlink::after{content:"";position:absolute;left:0;right:100%;bottom:0;height:2px;
+  background:#fff;transition:right .22s ease}
+.nav-links a.navlink:hover,.nav-links a.navlink.on{color:var(--text)}
+.nav-links a.navlink:hover::after,.nav-links a.navlink.on::after{right:0}
+.nav-tools{display:flex;align-items:center;gap:12px}
+.icon-btn{position:relative;display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border:1px solid var(--line-strong);
+  border-radius:var(--r-sm);background:rgba(255,255,255,.04);color:var(--text);text-decoration:none;
+  font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit;transition:border-color .18s,color .18s,background .18s}
+.icon-btn:hover{border-color:#fff;color:var(--text);background:rgba(255,255,255,.12)}
+.count{display:inline-flex;align-items:center;justify-content:center;min-width:19px;height:19px;padding:0 5px;
+  background:#fff;color:var(--brand-ink);border-radius:var(--r-full);font-size:11px;font-weight:800}
+.avatar{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;
+  background:rgba(255,255,255,.12);border:1px solid var(--line-strong);
+  color:var(--text);font-size:12.5px;font-weight:800;letter-spacing:.5px;cursor:pointer;font-family:inherit}
+.menu-wrap{position:relative}
+.menu{display:none;position:absolute;top:52px;right:0;width:268px;background:var(--surface-3);
+  border:1px solid var(--line-strong);border-radius:var(--r-lg);box-shadow:var(--shadow-lg);overflow:hidden;z-index:300}
+.menu.open{display:block}
+.menu a,.menu .menu-head{display:block;padding:15px 18px;text-decoration:none;font-size:13.5px;border-bottom:1px solid var(--line)}
+.menu a{color:var(--text);font-weight:500}
+.menu a:hover{background:rgba(255,255,255,.1);color:#fff}
+.menu .menu-head{color:var(--muted);font-size:12.5px;background:rgba(255,255,255,.03)}
+.menu a:last-child{border-bottom:0}
+.notif{width:350px;max-height:420px;overflow-y:auto}
+.notif .item{display:block;padding:16px 18px;border-bottom:1px solid var(--line);text-decoration:none;color:var(--text)}
+.notif .item:hover{background:rgba(255,255,255,.05)}
+.notif .item.unread{background:rgba(255,255,255,.08)}
+.notif .item.unread b{font-weight:800}
+.notif .item b{display:block;font-size:13.5px;margin-bottom:4px}
+.notif .item span{font-size:12.5px;color:var(--muted);line-height:1.55}
+.notif .none{padding:30px;text-align:center;color:var(--muted);font-size:13.5px}
+.burger{display:none;background:rgba(255,255,255,.04);border:1px solid var(--line-strong);color:var(--text);
+  border-radius:var(--r-sm);padding:10px 13px;font-size:16px;cursor:pointer}
+.drawer{display:none;position:fixed;inset:82px 0 0;background:var(--bg-2);z-index:190;padding:30px var(--pad);overflow-y:auto}
+.drawer.open{display:block}
+.drawer a{display:block;padding:18px 0;border-bottom:1px solid var(--line);text-decoration:none;
+  color:var(--text);font-family:var(--serif);font-size:26px;letter-spacing:-.6px}
+@media (max-width:1000px){
+  .nav-links{display:none}
+  .burger{display:inline-block}
+}
+@media (max-width:560px){
+  .nav{height:72px}
+  .drawer{inset:72px 0 0}
+  .icon-btn{padding:10px 13px}
+}
+
+/* ---------- flash ---------- */
+.flashes{position:fixed;top:100px;right:22px;z-index:400;display:flex;flex-direction:column;gap:12px;max-width:380px}
+.flash{display:flex;gap:12px;align-items:flex-start;padding:16px 18px;border-radius:var(--r-md);font-size:13.5px;
+  line-height:1.55;background:var(--surface-3);color:var(--text);border:1px solid var(--line-strong);
+  border-left:3px solid var(--brand);box-shadow:var(--shadow-lg)}
+/* success / error are told apart by border thickness, not colour */
+.flash.success{border-left-width:3px;border-left-color:#fff}
+.flash.error{border-left-width:6px;border-left-color:#fff}
+.flash button{background:none;border:0;color:var(--muted);cursor:pointer;font-size:16px;line-height:1;padding:0 2px}
+
+/* ---------- forms ---------- */
+.field{margin-bottom:20px}
+.field label{display:block;font-size:13.5px;font-weight:600;margin-bottom:9px;color:var(--text-2)}
+.field input,.field select,.field textarea{width:100%;padding:15px 16px;background:var(--surface-2);
+  border:1px solid var(--line-strong);border-radius:var(--r-sm);color:var(--text);font-family:inherit;
+  font-size:15px;outline:none;transition:border-color .18s,box-shadow .18s,background .18s}
+.field textarea{min-height:150px;resize:vertical;line-height:1.6}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:#fff;
+  background:var(--surface);box-shadow:0 0 0 3px rgba(255,255,255,.14)}
+.field input::placeholder,.field textarea::placeholder{color:#6d7c8d}
+.field select option{background:var(--surface-3);color:var(--text)}
+.field .hint{font-size:12.5px;color:var(--muted);margin-top:8px}
+.field-row{display:flex;gap:18px}
+.field-row .field{flex:1}
+@media (max-width:560px){.field-row{flex-direction:column;gap:0}}
+
+/* ---------- trek card (home + listing only) ---------- */
+.trek-card{display:flex;flex-direction:column;position:relative;
+  background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,0)),var(--surface);
+  border:1px solid var(--line);border-radius:var(--r-2xl);overflow:hidden;box-shadow:var(--shadow);
+  transition:box-shadow .3s ease,transform .3s ease,border-color .3s ease}
+.trek-card:hover{transform:translateY(-6px);border-color:#fff;
+  box-shadow:var(--shadow-lg),0 0 0 1px rgba(255,255,255,.2)}
+.trek-card .shot{position:relative;display:block;aspect-ratio:16/10;overflow:hidden;background:var(--stone)}
+.trek-card .shot img{width:100%;height:100%;object-fit:cover;object-position:center center;
+  transition:transform .7s ease}
+.trek-card:hover .shot img{transform:scale(1.06)}
+.trek-card .shot::after{content:"";position:absolute;inset:0;
+  background:linear-gradient(180deg,rgba(7,10,15,.5) 0%,rgba(7,10,15,0) 42%,rgba(7,10,15,.55) 100%)}
+.trek-card .tags{position:absolute;inset:18px 18px auto 18px;display:flex;justify-content:space-between;gap:10px;z-index:2}
+.trek-card .tags .pill{background:rgba(9,13,19,.72);backdrop-filter:blur(10px);
+  border-color:rgba(255,255,255,.22);color:#eaf1f8}
+.trek-card .body{padding:clamp(26px,2.1vw,34px);display:flex;flex-direction:column;flex:1}
+.trek-card .where{font-size:13px;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;
+  font-weight:600;margin-bottom:10px}
+.trek-card h3{margin-bottom:14px;font-size:clamp(26px,1.9vw,31px);letter-spacing:-.9px}
+.trek-card .desc{color:var(--text-2);font-size:15px;line-height:1.7;margin-bottom:30px;flex:1}
+.specs{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.35fr) minmax(0,.8fr);
+  gap:10px;padding:22px 0;
+  border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin-bottom:26px}
+.specs div{text-align:center;min-width:0;padding:0 2px}
+.specs span{display:block;font-size:11px;letter-spacing:.9px;text-transform:uppercase;
+  color:var(--muted);margin-bottom:6px;white-space:nowrap}
+.specs b{display:block;font-size:14.5px;font-weight:700;color:var(--text);line-height:1.35}
+.specs div:nth-child(2) b{font-size:14px;white-space:nowrap}
+.specs div:nth-child(3) b{white-space:nowrap}
+@media (max-width:520px){.specs b,.specs div:nth-child(2) b{white-space:normal}}
+/* price: no longer orange. It stands out by being the largest, heaviest
+   number in its row, in plain white. */
+.price{font-size:29px;font-weight:800;color:#fff;font-family:var(--sans);letter-spacing:-.8px}
+.price sub{font-size:12px;color:var(--muted);font-weight:500;vertical-align:baseline}
+.card-foot{margin-top:auto;gap:14px;flex-wrap:nowrap}
+.card-foot .btn{white-space:nowrap}
+@media (max-width:400px){.card-foot{flex-wrap:wrap}}
+
+/* ---------- misc ---------- */
+.stat b{display:block;font-family:var(--serif);font-size:40px;letter-spacing:-1.2px;color:var(--text)}
+.stat span{font-size:13.5px;color:var(--muted)}
+.ticklist{list-style:none;display:grid;gap:13px}
+.ticklist + .kicker,.ticklist + h2,.ticklist + h3,.ticklist + h4{margin-top:clamp(26px,4vw,44px)}
+.ticklist li{position:relative;padding-left:26px;font-size:14.5px;line-height:1.65;color:var(--text-2)}
+.ticklist li::before{content:"";position:absolute;left:0;top:10px;width:8px;height:8px;border-radius:2px;background:#fff}
+.ticklist.no li::before{background:transparent;border:1px solid var(--line-strong);border-radius:2px}
+.ticklist.no li{color:var(--muted)}
+.empty{text-align:center;padding:clamp(60px,8vw,96px) 30px}
+.empty h2{margin-bottom:14px;font-size:30px}
+.empty p{color:var(--muted);margin:0 auto 30px;max-width:46ch}
+.line{display:flex;justify-content:space-between;gap:18px;font-size:14.5px;color:var(--muted);margin-bottom:14px}
+.line b{color:var(--text);font-weight:600}
+.line--total{padding-top:18px;margin-top:10px;border-top:1px solid var(--line);font-size:19px;font-weight:700;color:var(--text)}
+.line--total b{color:#fff;font-size:23px;font-weight:800}
+
+/* ---------- footer ---------- */
+footer{background:var(--surface-2);border-top:1px solid var(--line);color:var(--text-2);
+  padding:clamp(60px,7vw,92px) 0 34px;margin-top:0}
+footer .brand{color:var(--text)}
+footer .brand i{color:var(--text)}
+footer .small{color:var(--muted)}
+.foot-grid{display:grid;grid-template-columns:1.8fr 1fr 1fr 1fr;gap:44px;
+  padding-bottom:48px;border-bottom:1px solid var(--line)}
+.foot-grid h4{font-family:var(--sans);font-size:12.5px;font-weight:700;color:var(--text);
+  letter-spacing:1.2px;text-transform:uppercase;margin-bottom:18px}
+.foot-grid a{display:block;color:var(--muted);text-decoration:none;font-size:14.5px;margin-bottom:12px;transition:color .18s}
+.foot-grid a:hover{color:#fff}
+.foot-bottom{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;padding-top:28px;
+  font-size:13.5px;color:var(--muted)}
+@media (max-width:900px){.foot-grid{grid-template-columns:1fr 1fr;gap:34px}}
+@media (max-width:560px){
+  .foot-grid{grid-template-columns:1fr}
+  .flashes{left:14px;right:14px;top:86px;max-width:none}
+}
+{% block extra_css %}{% endblock %}
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <a href="/" class="brand">PEAK<i>.</i></a>
+
+  <nav class="nav-links">
+    <a class="navlink {{ 'on' if nav == 'home' }}" href="/">Home</a>
+    <a class="navlink {{ 'on' if nav == 'treks' }}" href="/treks">All treks</a>
+    <a class="navlink {{ 'on' if nav == 'about' }}" href="/about">About us</a>
+    <a class="navlink {{ 'on' if nav == 'contact' }}" href="/contact">Contact</a>
+  </nav>
+
+  <div class="nav-tools">
+    <a href="/cart" class="icon-btn" aria-label="Cart">Cart{% if cart_count %}<span class="count">{{ cart_count }}</span>{% endif %}</a>
+
+    {% if current_user %}
+      <div class="menu-wrap">
+        <button class="icon-btn" onclick="toggleMenu(event,'notifMenu')" aria-label="Notifications">
+          Alerts{% if unread_count %}<span class="count">{{ unread_count }}</span>{% endif %}
+        </button>
+        <div class="menu notif" id="notifMenu">
+          {% for n in recent_notifs %}
+            <a class="item {{ 'unread' if not n.is_read }}" href="/notifications/open/{{ n.id }}">
+              <b>{{ n.title }}</b><span>{{ n.message }}</span>
+            </a>
+          {% else %}
+            <div class="none">Nothing here yet. Book a trek and updates will show up.</div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="menu-wrap">
+        <button class="avatar" onclick="toggleMenu(event,'userMenu')" aria-label="Account">{{ current_user.initials() }}</button>
+        <div class="menu" id="userMenu">
+          <div class="menu-head">Signed in as {{ current_user.email }}</div>
+          <a href="/bookings">My bookings</a>
+          <a href="/cart">My cart</a>
+          <a href="/logout">Sign out</a>
+        </div>
+      </div>
+    {% else %}
+      <a href="/signin" class="btn btn--outline btn--sm">Sign in</a>
+    {% endif %}
+
+    <button class="burger" onclick="toggleDrawer()" aria-label="Menu">&#9776;</button>
+  </div>
+</header>
+
+<div class="drawer" id="drawer">
+  <a href="/">Home</a>
+  <a href="/treks">All treks</a>
+  <a href="/about">About us</a>
+  <a href="/contact">Contact</a>
+  <a href="/cart">Cart{% if cart_count %} ({{ cart_count }}){% endif %}</a>
+  {% if current_user %}<a href="/bookings">My bookings</a><a href="/logout">Sign out</a>
+  {% else %}<a href="/signin">Sign in</a>{% endif %}
+</div>
+
+<div class="flashes">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}
+      <div class="flash {{ category }}">
+        <span>{{ message }}</span>
+        <button onclick="this.parentElement.remove()" aria-label="Dismiss">&times;</button>
+      </div>
+    {% endfor %}
+  {% endwith %}
+</div>
+
+{% block body %}{% endblock %}
+
+<footer>
+  <div class="shell">
+    <div class="foot-grid">
+      <div>
+        <a href="/" class="brand">PEAK<i>.</i></a>
+        <p class="small" style="margin-top:12px;max-width:34ch">
+          Guided weekend treks across the Western Ghats and the Deccan plateau,
+          operating out of Bengaluru since 2021.
+        </p>
+      </div>
+      <div>
+        <h4>Explore</h4>
+        <a href="/treks">All treks</a>
+        <a href="/treks?sort=price">Lowest price first</a>
+        <a href="/treks?sort=rating">Highest rated</a>
+        <a href="/treks?q=Western%20Ghats">Western Ghats</a>
+      </div>
+      <div>
+        <h4>Company</h4>
+        <a href="/about">About us</a>
+        <a href="/contact">Contact</a>
+      </div>
+      <div>
+        <h4>Your account</h4>
+        <a href="/bookings">My bookings</a>
+        <a href="/cart">Cart</a>
+        {% if current_user %}<a href="/logout">Sign out</a>{% else %}<a href="/signin">Sign in</a><a href="/signup">Create account</a>{% endif %}
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>&copy; {{ current_year }} PEAK Adventures, Bengaluru.</span>
+      <span>All treks operated under Karnataka Forest Department permits.</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+function toggleMenu(e,id){
+  e.stopPropagation();
+  document.querySelectorAll('.menu').forEach(function(m){ if(m.id!==id) m.classList.remove('open'); });
+  document.getElementById(id).classList.toggle('open');
+}
+function toggleDrawer(){ document.getElementById('drawer').classList.toggle('open'); }
+document.addEventListener('click',function(){
+  document.querySelectorAll('.menu').forEach(function(m){ m.classList.remove('open'); });
+});
+setTimeout(function(){
+  document.querySelectorAll('.flash').forEach(function(f){ f.remove(); });
+}, 6000);
+</script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

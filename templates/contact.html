@@ -1,0 +1,73 @@
+
+{% extends "base.html" %}
+{% block title %}Contact PEAK{% endblock %}
+
+{% block extra_css %}
+.c-layout{display:grid;grid-template-columns:1.25fr 1fr;gap:clamp(36px,4.5vw,66px);align-items:start}
+@media (max-width:880px){.c-layout{grid-template-columns:1fr}}
+.info div{padding:24px 0;border-bottom:1px solid var(--line)}
+.info div:first-child{padding-top:0}
+.info h4{font-family:var(--sans);font-size:12px;letter-spacing:1.4px;text-transform:uppercase;
+  font-weight:700;color:var(--text);margin-bottom:8px}
+.info p{font-size:14.5px;line-height:1.7;color:var(--muted)}
+{% endblock %}
+
+{% block body %}
+<section class="section section--tight">
+  <div class="shell">
+    <p class="kicker">Contact</p>
+    <h1 style="margin-bottom:12px">Get in touch</h1>
+    <p class="lede" style="margin-bottom:38px">
+      Questions about fitness, group bookings, or whether a trail is running this weekend.
+      Everything sent from this form lands in our inbox and we reply within one working day.
+    </p>
+    
+
+    <div class="c-layout">
+  <form method="POST" class="card">
+ <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+ <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="field-row">
+          <div class="field"><label for="name">Your name</label>
+            <input id="name" type="text" name="name" value="{{ form.name }}"
+                   placeholder="So we know who we are replying to" minlength="2" required></div>
+          <div class="field"><label for="email">Email</label>
+            <input id="email" type="email" name="email" value="{{ form.email }}"
+                   placeholder="you@example.com" required></div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label for="phone">Mobile number</label>
+            <input id="phone" type="tel" name="phone" value="{{ form.phone }}"
+                   placeholder="Optional, if you would rather we called">
+          </div>
+          <div class="field"><label for="subject">What is this about</label>
+            <select id="subject" name="subject">
+              {% for s in subjects %}
+                <option value="{{ s }}" {{ 'selected' if form.subject == s }}>{{ s }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="field"><label for="message">Your message</label>
+          <textarea id="message" name="message" minlength="10"
+                    placeholder="Tell us what you need. If it is about a booking you already made, include the reference from your receipt."
+                    required>{{ form.message }}</textarea>
+          <p class="hint">We reply to the email address above, so do check it is right.</p>
+        </div>
+        <button class="btn btn--primary" type="submit">Send message</button>
+      </form>
+
+      <div class="info">
+        <div><h4>Email</h4><p>{{ support_email }}</p><p>Replies within one working day.</p></div>
+        <div><h4>Phone</h4><p>{{ support_phone }}, weekdays 10am to 7pm</p></div>
+        <div><h4>On trek days</h4><p>Your guide's number goes out with the pre-trek brief, two days before departure.</p></div>
+        <div><h4>Office</h4><p>Indiranagar, Bengaluru 560038</p></div>
+        <div><h4>Existing bookings</h4><p>Quote the reference printed on your receipt and we can pull the
+          booking up straight away. Date changes and cancellations are free up to 72 hours before departure.</p></div>
+        <div style="border-bottom:0"><h4>Group bookings</h4><p>Ten or more trekkers, or a private batch on a date of your
+          choosing? Mention it in the form and we will quote separately.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

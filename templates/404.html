@@ -1,0 +1,39 @@
+
+{% extends "base.html" %}
+{% block title %}404 — Page not found | PEAK{% endblock %}
+
+{% block extra_css %}
+.err{max-width:920px;margin:clamp(34px,5vw,70px) auto clamp(60px,7vw,100px);
+  border:1px solid var(--line-strong);border-radius:var(--r-2xl);overflow:hidden;
+  background:var(--surface);box-shadow:var(--shadow-lg)}
+/* 9) the error photo is centred and covers its band */
+.err .shot{width:100%;aspect-ratio:16/9;object-fit:cover;object-position:center center;
+  border-bottom:1px solid var(--line-strong);background:var(--stone)}
+.err .say{padding:clamp(30px,4vw,52px);text-align:center}
+.err .say .code{font-size:12px;font-weight:700;letter-spacing:2.4px;text-transform:uppercase;
+  color:var(--muted);margin-bottom:14px}
+.err .say h1{font-size:clamp(28px,3.4vw,42px);margin-bottom:12px}
+.err .say p{color:var(--text-2);max-width:52ch;margin:0 auto 28px}
+.err .row{justify-content:center}
+{% endblock %}
+
+{% block body %}
+<div class="shell">
+  <div class="err">
+    <img class="shot" src="/static/error-404.jpg" alt="Off the trail"
+         onerror="this.onerror=null;this.style.display='none'">
+    <div class="say">
+      <p class="code">Error 404</p>
+      <h1>This trail does not exist</h1>
+      <p>
+        The page or trek you asked for is not here. It may have been moved, or the address
+        may have a typo in it.
+      </p>
+      <div class="row">
+        <a href="/" class="btn btn--primary">Back to PEAK</a>
+        <a href="/treks" class="btn btn--ghost">See all treks</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
