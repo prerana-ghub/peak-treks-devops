@@ -1,0 +1,20 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: peak-db-init
+spec:
+  backoffLimit: 6
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: db-init
+        image: preranasseshadri/peak:latest
+        imagePullPolicy: Always
+        command:
+        - python
+        - -c
+        - "from app import app, prepare_database; app.app_context().push(); prepare_database()"
+        envFrom:
+        - secretRef:
+            name: peak-secrets
