@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html>
+<body style="margin:0;padding:0;background:#f6f4f1;font-family:Helvetica,Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+<tr>
+<td align="center" style="padding:32px 14px;">
+
+<table width="600" cellpadding="0" cellspacing="0" role="presentation"
+       style="background:#ffffff;border:1px solid #e3e0da;border-radius:14px;overflow:hidden;">
+
+  <tr>
+    <td style="background:#17233a;padding:22px 32px;">
+      <span style="font-family:Georgia,serif;font-size:22px;color:#ffffff;letter-spacing:.5px;">PEAK</span>
+      <span style="font-size:12px;color:#c6cedd;padding-left:10px;">Karnataka trekking</span>
+    </td>
+  </tr>
+
+  <tr>
+    <td style="padding:34px 32px 6px;">
+      <h1 style="margin:0 0 8px;font-family:Georgia,serif;font-size:26px;color:#14171c;font-weight:normal;">
+        Booking Confirmed
+      </h1>
+      <p style="margin:0;font-size:14px;color:#5b6570;line-height:1.6;">
+        {{ order.name }}, your payment went through and your slot is held.
+        Keep this email; the booking reference is your ticket on trek day.
+      </p>
+    </td>
+  </tr>
+
+  <tr>
+    <td style="padding:22px 32px 0;">
+      <table width="100%" cellpadding="0" cellspacing="0" role="presentation"
+             style="background:#edeae4;border-radius:10px;">
+        <tr>
+          <td style="padding:16px 18px;">
+            <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+              <tr>
+                <td style="font-size:13px;color:#5b6570;padding:6px 0;">Booking reference</td>
+                <td align="right" style="font-size:13px;color:#14171c;font-weight:700;">
+                  {{ order.order_ref }}
+                </td>
+              </tr>
+              <tr>
+                <td style="font-size:13px;color:#5b6570;padding:6px 0;">Booked on</td>
+                <td align="right" style="font-size:13px;color:#14171c;">
+                  {{ order.created_at.strftime('%d %b %Y, %I:%M %p') }}
+                </td>
+              </tr>
+              <tr>
+                <td style="font-size:13px;color:#5b6570;padding:6px 0;">Payment method</td>
+                <td align="right" style="font-size:13px;color:#14171c;">
+                  {{ payment.method }}{% if payment.upi_id %} ({{ payment.upi_id }}){% endif %}
+                </td>
+              </tr>
+              <tr>
+                <td style="font-size:13px;color:#5b6570;padding:6px 0;">Transaction ID</td>
+                <td align="right" style="font-size:13px;color:#14171c;">
+                  {{ payment.transaction_id }}
+                </td>
+              </tr>
+              <tr>
+                <td style="font-size:13px;color:#5b6570;padding:6px 0;">Contact number</td>
+                <td align="right" style="font-size:13px;color:#14171c;">
+                  {{ order.phone }}
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+
+  <tr>
+    <td style="padding:26px 32px 0;">
+      <div style="font-size:12px;color:#5b6570;letter-spacing:.6px;padding-bottom:4px;">
+        YOUR TREKS
+      </div>
+
+      <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+        {% for item in order.items() %}
+        {% set photo = email_image_for(item) %}
+
+        <tr>
+          <td style="padding:18px 0;border-bottom:1px solid #e3e0da;">
+            <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+              <tr>
+
+                <td width="132" valign="top" style="padding-right:12px;">
+                  {% if photo %}
+                  <img src="{{ photo }}"
+                       width="120"
+                       height="86"
+                       alt="{{ item.trek_name }}"
+                       style="display:block;width:120px;height:86px;object-fit:cover;border-radius:8px;border:0;">
+                  {% endif %}
+                </td>
+
+                <td valign="top">
+                  <div style="font-family:Georgia,serif;font-size:17px;color:#14171c;">
+                    {{ item.trek_name }}
+                  </div>
+
+                  <div style="font-size:13px;color:#5b6570;padding-top:4px;">
+                    {{ item.location }}
+                  </div>
+
+                  <div style="font-size:13px;color:#14171c;padding-top:8px;">
+                    <b>Date:</b> {{ pretty_date(item.trek_date) }}<br>
+                    <b>Trekkers:</b> {{ item.people }}<br>
+                    <b>Meeting point:</b> {{ meeting_point_for(item) }}
+                  </div>
+                </td>
+
+                <td valign="top" align="right"
+                    style="font-size:15px;color:#14171c;white-space:nowrap;">
+                  <b>&#8377;{{ item.subtotal() }}</b>
+
+                  <div style="font-size:12px;color:#5b6570;padding-top:4px;">
+                    &#8377;{{ item.price }} &times; {{ item.people }}
+                  </div>
+                </td>
+
+              </tr>
+            </table>
+          </td>
+        </tr>
+        {% endfor %}
+      </table>
+    </td>
+  </tr>
+
+  <tr>
+    <td style="padding:18px 32px 0;">
+      <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+
+        <tr>
+          <td style="padding:8px 0;font-size:14px;color:#5b6570;">Subtotal</td>
+          <td align="right" style="padding:8px 0;font-size:14px;color:#5b6570;">
+            &#8377;{{ order.subtotal }}
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:8px 0;font-size:14px;color:#5b6570;">GST (5%)</td>
+          <td align="right" style="padding:8px 0;font-size:14px;color:#5b6570;">
+            &#8377;{{ order.gst }}
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:8px 0;font-size:14px;color:#5b6570;">Booking fee</td>
+          <td align="right" style="padding:8px 0;font-size:14px;color:#5b6570;">
+            &#8377;{{ order.booking_fee }}
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:8px 0;border-top:1px solid #e3e0da;font-size:17px;color:#5b6570;">
+            Total paid
+          </td>
+          <td align="right"
+              style="padding:8px 0;border-top:1px solid #e3e0da;font-size:17px;color:#b45332;font-weight:700;">
+            &#8377;{{ order.total }}
+          </td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+
+  <tr>
+    <td style="padding:28px 32px 0;">
+      <div style="border:1px solid #e3e0da;border-radius:10px;padding:18px 20px;">
+
+        <div style="font-size:14px;color:#14171c;font-weight:700;padding-bottom:10px;">
+          Before you travel
+        </div>
+
+        <div style="font-size:13px;color:#5b6570;line-height:1.8;">
+          1. Reach the meeting point 30 minutes before the listed start time.<br>
+          2. Carry a government photo ID in the name on this booking; forest checkposts verify it.<br>
+          3. Wear shoes with grip and carry at least two litres of water.<br>
+          4. Cancellations and date changes are free up to 72 hours before departure.<br>
+          5. Your guide's phone number is sent two days before the trek.
+        </div>
+
+      </div>
+    </td>
+  </tr>
+
+  <tr>
+    <td style="padding:26px 32px 34px;">
+      <div style="font-size:13px;color:#5b6570;line-height:1.7;">
+        Questions about this booking? Reply to this email, write to
+        <a href="mailto:{{ support_email }}" style="color:#17233a;">
+          {{ support_email }}
+        </a>,
+        or call {{ support_phone }} on weekdays between 10am and 7pm.
+      </div>
+    </td>
+  </tr>
+
+  <tr>
+    <td style="background:#edeae4;padding:16px 32px;font-size:12px;color:#5b6570;">
+      PEAK Adventures, Indiranagar, Bengaluru 560038
+    </td>
+  </tr>
+
+</table>
+
+</td>
+</tr>
+</table>
+</body>
+</html>
