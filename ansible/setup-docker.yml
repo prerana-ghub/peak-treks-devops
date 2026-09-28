@@ -1,0 +1,24 @@
+---
+- name: Configure Docker server
+  hosts: docker-server
+  become: true
+
+  tasks:
+    - name: Ensure Docker and Git are installed
+      ansible.builtin.dnf:
+        name:
+          - docker
+          - git
+        state: present
+
+    - name: Ensure Docker is running and enabled
+      ansible.builtin.systemd:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Let ec2-user run Docker without sudo
+      ansible.builtin.user:
+        name: ec2-user
+        groups: docker
+        append: true
