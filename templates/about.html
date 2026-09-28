@@ -1,0 +1,294 @@
+
+{% extends "base.html" %}
+{% block title %}About PEAK{% endblock %}
+
+{% block extra_css %}
+.about-hero{padding:clamp(66px,8vw,110px) 0 clamp(50px,6vw,80px);border-bottom:1px solid var(--line);background:var(--surface-2)}
+.tally{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:1px;background:var(--line);
+  border:1px solid var(--line);border-radius:var(--r-xl);overflow:hidden;margin-top:clamp(40px,5vw,60px)}
+.tally div{background:var(--surface);padding:30px}
+.tally b{display:block;font-family:var(--serif);font-size:36px;letter-spacing:-1px}
+.tally span{font-size:13.5px;color:var(--muted)}
+.prose p{color:var(--text-2);margin-bottom:16px;max-width:68ch}
+.crew{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:var(--gap)}
+.crew .who{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-xl);
+  padding:32px;box-shadow:var(--shadow)}
+.crew .avatar{width:54px;height:54px;font-size:16px;margin-bottom:20px}
+.crew h3{font-size:21px;margin-bottom:6px}
+.crew .who--lead{grid-column:1/-1;display:grid;grid-template-columns:auto minmax(0,1fr);
+  gap:clamp(22px,2.4vw,34px);align-items:start}
+.crew .who--lead .avatar{width:72px;height:72px;font-size:20px;margin-bottom:0}
+@media (max-width:720px){.crew .who--lead{grid-template-columns:1fr}}
+/* 1) Fixed three columns instead of auto-fit. Six rules over three columns
+   is exactly two full rows, so the grid's own background can never show
+   through as an empty grey cell at the end. */
+.rules{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;
+  background:var(--line);border:1px solid var(--line);border-radius:var(--r-xl);overflow:hidden}
+@media (max-width:1000px){.rules{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:640px){.rules{grid-template-columns:1fr}}
+.rules div{background:var(--surface);padding:30px}
+.rules h4{font-family:var(--serif);font-size:19px;margin-bottom:10px}
+.rules p{font-size:14px;line-height:1.7;color:var(--text-2)}
+.story{display:grid;grid-template-columns:170px minmax(0,1fr);gap:26px;padding:24px 0;
+  border-top:1px solid var(--line)}
+.story:last-child{border-bottom:1px solid var(--line)}
+.story .yr{font-family:var(--serif);font-size:20px;font-weight:700;color:var(--text)}
+.story h4{font-family:var(--sans);font-size:15.5px;font-weight:700;margin-bottom:8px}
+.story p{font-size:14.5px;line-height:1.7;color:var(--text-2)}
+@media (max-width:620px){.story{grid-template-columns:1fr;gap:6px}}
+.crew .role{font-size:12.5px;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted);
+  font-weight:700;margin-bottom:14px}
+.crew p{font-size:14.5px;line-height:1.7;color:var(--text-2)}
+{% endblock %}
+
+{% block body %}
+<section class="about-hero">
+  <div class="shell">
+    <p class="kicker">About us</p>
+    <h1 style="max-width:22ch">A trekking operator run out of Bengaluru</h1>
+    <p class="lede" style="margin-top:16px">
+      PEAK runs permitted, guided weekend departures on {{ trek_count }} Karnataka trails across the
+      Western Ghats and the Deccan plateau. Batches are capped at fifteen, every departure goes out
+      with two guides, and the difficulty grade on each trek page comes from a walk of that route in
+      the current season rather than from a brochure.
+    </p>
+    <div class="tally">
+      <div><b>2021</b><span>Year we started</span></div>
+      <div><b>{{ trek_count }}</b><span>Trails we run</span></div>
+      <div><b>{{ trekker_count }}+</b><span>Trekkers taken out</span></div>
+      <div><b>15</b><span>Maximum group size</span></div>
+      <div><b>2</b><span>Guides per departure</span></div>
+      <div><b>0</b><span>Trailhead fees to pay</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="section section--tight">
+  <div class="shell">
+    <div class="pair">
+      <div>
+        <p class="kicker">What we do</p>
+        <h2 style="margin-bottom:18px">Six trails, run properly, instead of sixty on a list</h2>
+        <div class="prose">
+          <p>
+            Every trek on this site is one we operate ourselves. We are not a marketplace reselling
+            somebody else's batch, so the guide who meets you at the base is on our team, the permit
+            in your name was applied for by us, and the person who answers the phone on trek morning
+            can actually tell you where your group is.
+          </p>
+          <p>
+            That is also why the list is short. Each trail gets re-walked at the start of a season and
+            the trek page gets rewritten from that walk, which is slow work. Adding a seventh trail
+            means doing all of it again properly, so we only add one when we can.
+          </p>
+          <p>
+            We operate out of Indiranagar, Bengaluru, and almost everything we run is a weekend
+            departure you can do without taking leave: a Saturday or Sunday start, back in the city
+            the same night or by the next morning.
+          </p>
+        </div>
+      </div>
+      <div>
+      <br>
+        <p class="kicker">How we work</p>
+        <h2 style="margin-bottom:18px">Things we will not do</h2>
+        <ul class="ticklist no">
+          <li>Take more than fifteen trekkers in a batch, whatever the demand for a date</li>
+          <li>Send a batch out with one guide because the second one called in sick</li>
+          <li>Soften a difficulty grade to make a trail sell better</li>
+          <li>Collect anything extra at the trailhead or at a forest checkpost</li>
+          <li>Run a high trail in peak monsoon because a group has already paid</li>
+          <li>Light cooking fires, or carry single-use plastic up any route</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section section--tight">
+  <div class="shell">
+    <div class="card" style="padding:clamp(30px,4vw,46px);max-width:74ch">
+      <p class="kicker" style="margin-bottom:16px">A note from the founder</p>
+
+      <p style="font-size:17.5px;line-height:1.8;color:var(--text-2)">
+        PEAK started the way most good weekend plans do: someone suggested a trek, a few people said yes,
+        and suddenly we were figuring out who had a car. I liked the trekking part. I did not particularly
+        enjoy keeping track of ten people, three different pickup points and everyone's idea of what
+        "early morning" meant.
+      </p>
+
+      <p style="font-size:17.5px;line-height:1.8;color:var(--text-2);margin-top:16px">
+        Somewhere along the way, those little weekend trips turned into PEAK. The idea is still pretty
+        simple — find good trails, put together good groups, and make the whole thing easier for people
+        who just want to go trekking without spending their entire week planning it.
+      </p>
+
+      <p style="font-size:17.5px;line-height:1.8;color:var(--text-2);margin-top:16px">
+        I still go out on the trails whenever I can. Partly because I love it, and partly because you learn
+        things on a trail that you won't find on a map. A route can look easy on paper and have one
+        ridiculous climb halfway through. A "small" stream can become very much not small after rain.
+        And sometimes the best part of a trek is the chai you find afterwards.
+      </p>
+
+      <p style="font-size:17.5px;line-height:1.8;color:var(--text-2);margin-top:16px">
+        We're a small team, and that's intentional. We know the trails, we know the people coming on them,
+        and we're around when things don't go exactly according to plan. Which, on a trek, they occasionally
+        don't. That's part of the fun too.
+      </p>
+
+      <p style="margin-top:24px;font-weight:800;color:var(--text)">
+        — Prerana S, Founder
+      </p>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="shell">
+    <div class="head">
+      <p class="kicker">The crew</p>
+      <h2>The people behind the trails</h2>
+      <p class="lede" style="margin-top:12px">
+        Small team. Too many trekking photos. Very little interest in sitting at a desk all weekend.
+      </p>
+    </div>
+
+    <div class="crew">
+
+      <div class="who who--lead">
+        <span class="avatar">PS</span>
+        <div>
+          <h3>Prerana S</h3>
+          <p class="role">Founder</p>
+          <p>
+            Started PEAK because organising weekend treks seemed like a better use of time than talking
+            about organising weekend treks. Usually the one checking routes, sorting out the details and
+            making sure everyone actually knows what they're signing up for. Has a habit of saying
+            "it's not that far" immediately before a very long climb.
+          </p>
+        </div>
+      </div>
+
+      <div class="who">
+        <span class="avatar">RB</span>
+        <h3>Rohit B</h3>
+        <p class="role">Lead guide, Western Ghats</p>
+        <p>
+          Knows the Kudremukh side of the Western Ghats better than most people know their own
+          neighbourhood. Fast uphill, annoyingly so, but patient enough to wait for everyone else.
+          Has a very practical approach to trekking: check the weather, check the trail, check the group,
+          then decide what happens next. Especially good at spotting the "shortcut" that definitely isn't
+          a shortcut.
+        </p>
+      </div>
+
+      <div class="who">
+        <span class="avatar">MD</span>
+        <h3>Meera D</h3>
+        <p class="role">Safety and logistics</p>
+        <p>
+          The organised one. Knows where the first-aid kit is, when the weather is about to turn and
+          exactly how much water people should have brought. Keeps the rest of us from making decisions
+          based entirely on optimism. If a trek needs to be changed because of weather, she's usually the
+          person who says it first.
+        </p>
+      </div>
+
+      <div class="who">
+        <span class="avatar">AS</span>
+        <h3>Arjun S</h3>
+        <p class="role">Rock and scramble lead</p>
+        <p>
+          Give him a rocky trail and he'll probably be happy for the rest of the day. Spends a lot of
+          weekends around Savandurga and Ramanagara and has an impressive ability to notice every climb,
+          ledge and slightly questionable-looking rock before the rest of us do. Quiet until someone
+          asks about climbing. Then you're getting the full explanation.
+        </p>
+      </div>
+
+      <div class="who">
+        <span class="avatar">KN</span>
+        <h3>Kavya N</h3>
+        <p class="role">Bookings and briefings</p>
+        <p>
+          The person who makes sure the rest of us know who's coming, where they're coming from and
+          whether they've read the trek briefing. If you've messaged PEAK with a question before a trek,
+          you've probably spoken to her. Remembers regulars, remembers their favourite trails, and has
+          probably answered "what should I wear?" more times than anyone should have to.
+        </p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<section class="section section--surface">
+  <div class="shell">
+    <div class="head"><p class="kicker">How we run a departure</p><h2>The same six rules, every trek</h2></div>
+    <div class="rules">
+      <div><h4>Two guides, always</h4><p>A lead guide at the front and a sweep guide at the back on
+        every batch, regardless of size. Both carry a first-aid kit and a whistle, and a route plan is
+        left with the office before you set off.</p></div>
+      <div><h4>Headcounts at every junction</h4><p>Not only at the start and the finish. On trails with
+        side paths that is the difference between noticing someone is missing in two minutes and
+        noticing at the summit.</p></div>
+      <div><h4>Grades from a real walk</h4><p>Re-walked each season. Savandurga is marked difficult
+        because the granite is loose and exposed in three places, and if monsoon damage changes a route
+        the grade changes before the next batch, not after.</p></div>
+      <div><h4>Permits arranged in advance</h4><p>Kudremukh and Kumara Parvatha sit inside reserve
+        forest with a capped daily quota. We apply using the ID details from your booking, and the cost
+        is already in the price you saw.</p></div>
+      <div><h4>Weather calls the evening before</h4><p>Everyone in the batch is told at the same time.
+        A cancelled departure is a full refund or a free date change, your choice. A guide can also stop
+        a group mid-trail, and that call is final.</p></div>
+      <div><h4>Everything comes back down</h4><p>A waste bag at the base, checked at the end rather
+        than just handed out. No cooking fires, no single-use plastic, and rest stops kept away from
+        water sources.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="shell">
+    <div class="head"><p class="kicker">How we got here</p><h2>Five years, six trails</h2></div>
+    <div>
+      <div class="story"><div class="yr">2021</div>
+        <div><h4>A weekend group becomes a business</h4>
+          <p>PEAK registers in Bengaluru and runs its first paid departures on Skandagiri and Nandi
+            Hills, with two guides and a borrowed van.</p></div></div>
+      <div class="story"><div class="yr">2022</div>
+        <div><h4>Into the Western Ghats</h4>
+          <p>Kudremukh and Kodachadri are added after a full season of route walks, along with the first
+            forest department permit arrangements for reserve-forest trails.</p></div></div>
+      <div class="story"><div class="yr">2023</div>
+        <div><h4>Granite and the hard grades</h4>
+          <p>Savandurga and Kumara Parvatha go on the calendar, and the difficulty grading is rewritten
+            so that exposure counts as much as distance.</p></div></div>
+      <div class="story"><div class="yr">2024</div>
+        <div><h4>Batches capped for good</h4>
+          <p>Group size is capped at fifteen across every trail and the two-guide rule becomes absolute,
+            even when it means turning down bookings on a popular weekend.</p></div></div>
+      <div class="story"><div class="yr">2025</div>
+        <div><h4>Booking moves onto this site</h4>
+          <p>Dates, quotas, payment and receipts all move online, so a booking is confirmed against a
+            real permit quota rather than a spreadsheet someone updates on Monday.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<section class="section section--tight">
+  <div class="shell">
+    <div class="card" style="text-align:center">
+      <h2 style="margin-bottom:12px">Not sure which trail suits you?</h2>
+      <p class="lede" style="margin:0 auto 26px">
+        Tell us your fitness, your experience and the weekend you have free, and we will say plainly
+        which of the {{ trek_count }} trails fits and which one does not.
+      </p>
+      <div class="row" style="justify-content:center">
+        <a href="/contact" class="btn btn--primary">Ask us</a>
+        <a href="/treks" class="btn btn--ghost">Browse all treks</a>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
