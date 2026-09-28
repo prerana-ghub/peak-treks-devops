@@ -18,3 +18,4 @@ kubectl create secret generic peak-secrets \
 
 Generate a secret key with:
 python3 -c "import secrets; print(secrets.token_hex(32))"
+## PEAK Kubernetes Deployment
