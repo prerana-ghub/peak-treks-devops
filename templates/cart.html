@@ -1,0 +1,116 @@
+
+{% extends "base.html" %}
+{% block title %}Your cart — PEAK{% endblock %}
+
+{% block extra_css %}
+.cart-layout{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:clamp(32px,4vw,56px);align-items:start}
+@media (max-width:940px){.cart-layout{grid-template-columns:1fr}}
+.c-item{display:grid;grid-template-columns:170px minmax(0,1fr) auto;gap:26px;padding:24px;background:var(--surface);
+  border:1px solid var(--line);border-radius:var(--r-xl);margin-bottom:20px;box-shadow:var(--shadow)}
+.c-item img{width:170px;height:128px;object-fit:cover;border-radius:var(--r-md)}
+.c-item h3{font-size:22px;margin-bottom:6px}
+.c-item .meta{font-size:13.5px;color:var(--muted);line-height:1.6}
+.c-right{text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:14px}
+.qty{display:flex;align-items:center;gap:8px}
+.qty input{width:64px;padding:9px;text-align:center;background:var(--surface-2);border:1px solid var(--line-strong);
+  border-radius:var(--r-sm);color:var(--text);font-family:inherit;font-weight:600}
+@media (max-width:820px){.c-item{grid-template-columns:1fr}.c-item img{width:100%;height:210px}
+  .c-right{align-items:flex-start;text-align:left}}
+.sum{position:sticky;top:102px;background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--r-xl);padding:32px;box-shadow:var(--shadow-lg)}
+.steps-bar{display:flex;gap:12px;align-items:center;font-size:13.5px;color:var(--muted);margin-bottom:32px;flex-wrap:wrap}
+.steps-bar b{color:var(--text)}
+{% endblock %}
+
+{% block body %}
+<section class="section section--tight">
+  <div class="shell">
+    <div class="steps-bar"><b>1. Cart</b><span>&rarr;</span><span>2. Checkout</span><span>&rarr;</span><span>3. Confirmation</span></div>
+    <h1 style="margin-bottom:30px">Your cart</h1>
+
+    {% if cart %}
+    <div class="cart-layout">
+      <div>
+        {% for item in cart %}
+        <div class="c-item">
+          <img src="{{ item.image_url }}" alt="{{ item.trek_name }}" onerror="this.style.visibility='hidden'">
+          <div>
+            <h3>{{ item.trek_name }}</h3>
+            <p class="meta">{{ item.location }}</p>
+            <p class="meta" style="margin-top:6px">{{ item.trek_date|pretty_date }}</p>
+            <p class="meta">&#8377;{{ item.price }} per person</p>
+            <a href="/trek/{{ item.trek_slug }}" class="small" style="color:#fff;font-weight:600;text-decoration:none">View trek details</a>
+          </div>
+          <div class="c-right">
+            <strong class="price">&#8377;{{ item.subtotal() }}</strong>
+  <form method="POST" action="/cart/update/{{ item.id }}" class="qty">
+ <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+ <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+ <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+ <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+ <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="number" name="people" value="{{ item.people }}" min="1" max="20" aria-label="Trekkers">
+              <button class="btn btn--ghost btn--sm" type="submit">Update</button>
+            </form>
+  <form method="POST" action="/cart/remove/{{ item.id }}">
+ <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+ <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+ <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+ <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+ <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="btn btn--danger" type="submit">Remove</button>
+            </form>
+          </div>
+        </div>
+        {% endfor %}
+        <a href="/treks" class="btn btn--ghost btn--sm" style="margin-top:8px">Add another trek</a>
+      </div>
+
+      <aside class="sum">
+        <h3 style="margin-bottom:18px">Summary</h3>
+        <div class="line"><span>{{ cart_count }} trekker{{ '' if cart_count == 1 else 's' }}</span><b>&#8377;{{ subtotal }}</b></div>
+        <div class="line"><span>GST at 5%</span><b>&#8377;{{ gst }}</b></div>
+        <div class="line"><span>Booking fee</span><b>&#8377;{{ booking_fee }}</b></div>
+        <div class="line line--total"><span>Total</span><b>&#8377;{{ total }}</b></div>
+        <a href="/checkout" class="btn btn--primary btn--wide" style="margin-top:20px">Go to checkout</a>
+        {% if not current_user %}
+        <p class="small" style="margin-top:14px;text-align:center">You will be asked to sign in at checkout. Your cart is saved.</p>
+        {% endif %}
+      </aside>
+    </div>
+    {% else %}
+      <div class="empty card">
+        <h2>Nothing in your cart yet</h2>
+        <p>Pick a trail and a weekend, and it will show up here.</p>
+        <a href="/treks" class="btn btn--primary">Browse treks</a>
+      </div>
+    {% endif %}
+
+    {% if current_user %}
+      <hr class="divider" style="margin:56px 0 30px">
+      <div class="row row--between" style="margin-bottom:18px">
+        <h2 style="font-size:26px">Recent bookings</h2>
+        <a href="/bookings" class="btn btn--ghost btn--sm">See all bookings</a>
+      </div>
+      {% if recent_orders %}
+        {% for order in recent_orders %}
+        <div class="panel" style="margin-bottom:14px">
+          <div class="row row--between">
+            <div>
+              <b>{{ order.display_ref() }}</b>
+              <p class="small">{{ order.created_at.strftime('%d %b %Y') }} &nbsp;|&nbsp; {{ order.headcount() }} trekker(s)</p>
+            </div>
+            <div class="row">
+              <span class="pill pill--ok">{{ order.status }}</span>
+              <a href="/order/{{ order.id }}/confirmation" class="btn btn--ghost btn--sm">Receipt</a>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <p class="small">No bookings yet. Your first one will appear here.</p>
+      {% endif %}
+    {% endif %}
+  </div>
+</section>
+{% endblock %}
