@@ -1,0 +1,30 @@
+<html>
+<body style="margin:0;padding:24px;background:#f4f3f0;
+font-family:-apple-system,Segoe UI,Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation"
+       style="max-width:560px;margin:0 auto;background:#fff;border:1px solid #e3e0da;border-radius:10px;">
+  <tr>
+    <td style="padding:28px;">
+      <h1 style="margin:0 0 14px;font-size:22px;color:#14171c;">We have your message</h1>
+
+      <p style="margin:0 0 14px;font-size:15px;line-height:1.7;color:#14171c;">
+        Thanks for writing in. We reply within one working day, usually sooner.
+        Your reference is <b>ENQ-{{ enquiry.id }}</b>.
+      </p>
+
+      <p style="margin:0 0 6px;font-size:12px;letter-spacing:1.4px;text-transform:uppercase;color:#5b6570;">
+        What you sent
+      </p>
+
+      <p style="margin:0;font-size:14px;line-height:1.7;color:#14171c;white-space:pre-wrap;">
+        {{ enquiry.message }}
+      </p>
+
+      <p style="margin:22px 0 0;font-size:13px;color:#5b6570;">
+        Urgent? Call {{ support_phone }}, weekdays 10am to 7pm.
+      </p>
+    </td>
+  </tr>
+</table>
+</body>
+</html>
