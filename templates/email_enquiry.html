@@ -1,0 +1,44 @@
+<html>
+<body style="margin:0;padding:24px;background:#f4f3f0;
+font-family:-apple-system,Segoe UI,Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation"
+       style="max-width:620px;margin:0 auto;background:#fff;border:1px solid #e3e0da;border-radius:10px;">
+  <tr>
+    <td style="padding:26px 28px;">
+      <p style="margin:0 0 4px;font-size:12px;letter-spacing:1.4px;text-transform:uppercase;color:#5b6570;">
+        PEAK contact form
+      </p>
+      <h1 style="margin:0 0 20px;font-size:21px;color:#14171c;">New enquiry</h1>
+
+      <table cellpadding="0" cellspacing="0" role="presentation">
+        {% for key, value in [
+          ("Name", enquiry.name),
+          ("Email", enquiry.email),
+          ("Phone", enquiry.phone or "not given"),
+          ("Subject", enquiry.subject),
+          ("Reference", "ENQ-" ~ enquiry.id)
+        ] %}
+        <tr>
+          <td style="padding:6px 16px 6px 0;color:#5b6570;font-size:13px;">{{ key }}</td>
+          <td style="padding:6px 0;color:#14171c;font-size:14px;font-weight:600;">{{ value }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+
+      <div style="margin-top:22px;padding-top:18px;border-top:1px solid #e3e0da;">
+        <p style="margin:0 0 8px;font-size:12px;letter-spacing:1.4px;text-transform:uppercase;color:#5b6570;">
+          Message
+        </p>
+        <p style="margin:0;font-size:15px;line-height:1.7;color:#14171c;white-space:pre-wrap;">
+          {{ enquiry.message }}
+        </p>
+      </div>
+
+      <p style="margin:22px 0 0;font-size:13px;color:#5b6570;">
+        Reply to this email to answer {{ enquiry.name }} directly.
+      </p>
+    </td>
+  </tr>
+</table>
+</body>
+</html>
