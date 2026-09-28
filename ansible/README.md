@@ -17,3 +17,4 @@ ansible-playbook -i inventory.ini setup-jenkins.yml
 Not automated on purpose, because they run once per cluster:
 - kubeadm init
 - the Calico network add-on
+## Ansible Server Configuration
