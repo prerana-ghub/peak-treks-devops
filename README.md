@@ -205,22 +205,25 @@ k8s/
 
 ---
 
-### # Docker Setup  
+### # Docker Setup
 
-1. **Build the image**  
+1. **Build the image**
    ```bash
    docker build -t peak .
    ```
 
-2. **Run the container**  
+2. **Run the container** (needs a secret key and a database URL)
    ```bash
-   docker run -p 5000:5000 peak
+   docker run -p 5000:5000 \
+     -e SECRET_KEY=your-secret-key \
+     -e DATABASE_URL=postgresql://user:password@host:5432/peak \
+     peak
    ```
 
-3. **Push to Docker Hub** (after login)  
+3. **Push to Docker Hub** (after login)
    ```bash
-   docker tag peak <your-dockerhub-username>/peak:latest
-   docker push <your-dockerhub-username>/peak:latest
+   docker tag peak <your-dockerhub-username>/peak:v1
+   docker push <your-dockerhub-username>/peak:v1
    ```
 
 ---
