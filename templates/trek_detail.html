@@ -1,11 +1,26 @@
-
 {% extends "base.html" %}
 {% block title %}{{ trek.name }} — PEAK{% endblock %}
 
 {% block extra_css %}
 /* ---------- detail hero: full-bleed, full photograph ---------- */
-.t-hero{padding:0}
-.t-wrap{position:relative;max-width:none;margin:0}
+.t-hero {
+    padding: 0 clamp(12px, 2vw, 28px);
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    box-sizing: border-box;
+}
+
+.t-wrap {
+    position: relative;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+}
+
+.t-frame {
+    width: 100%;
+}
 .t-frame{position:relative;overflow:hidden;border:0;border-bottom:1px solid var(--line);
   background:#05070a;aspect-ratio:21/9;min-height:clamp(400px,56vh,720px);max-height:88vh}
 .t-frame .blur{position:absolute;inset:-8%;background-size:cover;background-position:center;
@@ -161,7 +176,8 @@ details.faq p{color:var(--text-2);font-size:14.5px;margin-top:12px;max-width:66c
   <div class="t-wrap">
     <div class="t-frame">
       <div class="blur" style="background-image:url('{{ hero_photo }}'),url('{{ trek.fallback_image }}')"></div>
-      <img class="shot" src="{{ hero_photo }}" alt="{{ trek.name }}" style="object-position:{{ hero_focus }}"
+      <img class="shot" src="{{ hero_photo }}" alt="{{ trek.name }}"
+           data-object-position="{{ hero_focus|default('center center') }}"
            onerror="this.onerror=null;this.src='{{ trek.fallback_image }}'">
       <div class="scrim"></div>
     </div>
@@ -219,7 +235,7 @@ details.faq p{color:var(--text-2);font-size:14.5px;margin-top:12px;max-width:66c
       </div>
 
       <aside>
-  <form class="booker" method="POST" action="/cart/add">
+  <form class="booker" method="POST" action="/cart/add" data-unit-price="{{ trek.price }}">
  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -278,7 +294,9 @@ details.faq p{color:var(--text-2);font-size:14.5px;margin-top:12px;max-width:66c
       <button class="cbtn prev" type="button" onclick="galNav(-1)" aria-label="Previous photograph">&#8249;</button>
       <button class="cbtn next" type="button" onclick="galNav(1)" aria-label="Next photograph">&#8250;</button>
       <div class="cdots">
-        {% for src in carousel_shots %}<span class="{{ 'on' if loop.first }}" onclick="galGo({{ loop.index0 }})"></span>{% endfor %}
+        {% for src in carousel_shots %}
+        <span class="{{ 'on' if loop.first }}" data-slide="{{ loop.index0 }}"></span>
+        {% endfor %}
       </div>
       {% endif %}
     </div>
@@ -363,7 +381,15 @@ details.faq p{color:var(--text-2);font-size:14.5px;margin-top:12px;max-width:66c
 
 {% block extra_js %}
 <script>
-var UNIT = {{ trek.price }};
+var bookingForm = document.querySelector('.booker');
+var UNIT = bookingForm ? Number(bookingForm.dataset.unitPrice) : 0;
+
+var heroShot = document.querySelector('.t-frame .shot');
+if (heroShot) {
+  heroShot.style.objectPosition =
+    heroShot.dataset.objectPosition || 'center center';
+}
+
 function recalc(){
   var el = document.getElementById('people');
   var n = parseInt(el.value, 10);
@@ -383,6 +409,15 @@ recalc();
 var galSlides = document.querySelectorAll('#gal .frames img');
 var galDots   = document.querySelectorAll('#gal .cdots span');
 var galIndex  = 0;
+
+for (var d = 0; d < galDots.length; d++) {
+  (function(index) {
+    galDots[index].addEventListener('click', function() {
+      galGo(index);
+    });
+  })(d);
+}
+
 function galGo(n){
   if(!galSlides.length) return;
   galIndex = (n % galSlides.length + galSlides.length) % galSlides.length;
