@@ -1,76 +1,78 @@
-# 🏔️ PEAK - Trek Booking Platform  
+# 🏔️ PEAK - Trek Booking Platform
 
-PEAK is a **trek booking application** built with Flask and deployed on AWS using a containerized DevOps workflow.  
+PEAK is a **trek booking application** built with Flask and deployed on AWS using a containerized DevOps workflow.
 
-It demonstrates how a modern application can move through the **complete DevOps lifecycle** - from source code to automated deployment - while staying secure, scalable, and cloud‑ready.  
-
----
-
-## 🔑 Key Features  
-
-- Trek catalog with details (difficulty, duration, pricing, dates, images)  
-- Secure user registration & login  
-- Shopping cart with participant count & total calculation  
-- Checkout flow with demo payment integration  
-- Booking dashboard to view past/current bookings  
-- Automated email notifications for bookings & enquiries  
-
-Treks included: **Kudremukh, Kumara Parvatha, Savandurga, Skandagiri, Kodachadri and Nandi Hills**  
+It demonstrates how a modern application can move from source code to automated deployment - covering CI/CD, security scanning, containerization, orchestration and configuration management - while staying secure, scalable, and cloud-ready.
 
 ---
 
-## ⚙️ Tech Stack  
+## 🔑 Key Features
 
-- **Frontend**: HTML, CSS, Jinja2  
-- **Backend**: Python (Flask)  
-- **Database**: PostgreSQL + SQLAlchemy  
-- **Testing**: Pytest  
-- **Version Control**: Git, GitHub  
-- **Containerization**: Docker, Docker Hub  
-- **CI/CD**: Jenkins  
-- **Orchestration**: Kubernetes (k8s)   
-- **Config Management**: Ansible  
-- **Security**: Trivy  
+- Trek catalog with details (difficulty, duration, pricing, dates, images)
+- Secure user registration & login
+- Shopping cart with participant count, GST and total calculation
+- Checkout flow with demo payments (test card or UPI QR code)
+- Booking dashboard to view past/current bookings
+- Automated email notifications for bookings & enquiries
+- Health check endpoint (`/healthz`) used by Kubernetes probes
+
+Treks included: **Kudremukh, Kumara Parvatha, Savandurga, Skandagiri, Kodachadri and Nandi Hills**
 
 ---
 
-## 🚀 DevOps Pipeline  
+## ⚙️ Tech Stack
+
+- **Frontend**: HTML, CSS, Jinja2
+- **Backend**: Python (Flask), served with Gunicorn in containers
+- **Database**: PostgreSQL + SQLAlchemy (SQLite for local development)
+- **Testing**: Pytest
+- **Version Control**: Git, GitHub
+- **Containerization**: Docker, Docker Hub
+- **CI/CD**: Jenkins
+- **Orchestration**: Kubernetes (kubeadm, containerd)
+- **Config Management**: Ansible
+- **Security**: Trivy
+
+---
+
+## 🚀 DevOps Pipeline
 
 ```text
-GitHub → Jenkins → Tests → Trivy Scan → Docker Build → Docker Hub → Kubernetes → Application
+GitHub (webhook) → Jenkins → Docker Build → Tests → Trivy Scan → Docker Hub → Kubernetes (kubeadm) → Application
 ```
 
-- **Automated testing** ensures code quality  
-- **Security scanning** catches vulnerabilities early  
-- **Containerization** makes deployments portable  
-- **Kubernetes orchestration** enables scaling and resilience  
-- **Ansible** automates server setup  
+- **Automated testing** runs pytest inside the freshly built image
+- **Security scanning** with Trivy fails the build on fixable CRITICAL vulnerabilities before the image is pushed
+- **Containerization** makes deployments portable
+- **Kubernetes orchestration** enables scaling and resilience
+- **Ansible** automates server setup
 
 ---
 
-## 🏗️ Architecture  
+## 🏗️ Architecture
 
-The PEAK platform follows a modern DevOps pipeline and cloud‑native deployment model:
+The PEAK platform follows a modern DevOps pipeline and cloud-native deployment model:
 
 ![PEAK Architecture](architecture.png)
 
-- **Source Control** → GitHub hosts the codebase  
-- **CI/CD** → Jenkins automates testing, security scanning, and builds  
-- **Containerization** → Docker packages the app, stored in Docker Hub  
-- **Orchestration** → Kubernetes (k8s) manages deployment and scaling  
-- **Infrastructure** → AWS EC2 hosts the cluster  
-- **Configuration Management** → Ansible configures servers  
-- **Security** → Trivy scans images before deployment  
-- **Autoscaling** → Kubernetes HPA adjusts replicas based on load  
-- **Users** → Access the live application via browser  
+- **Source Control** → GitHub hosts the codebase
+- **CI/CD** → Jenkins automates building, testing, security scanning and deployment
+- **Containerization** → Docker packages the app, stored in Docker Hub
+- **Orchestration** → Kubernetes (kubeadm) manages deployment and scaling
+- **Infrastructure** → AWS EC2 instances host the whole setup: the Ansible control node, the Docker server, the Jenkins server and the Kubernetes (kubeadm) node(s)
+- **Configuration Management** → Ansible configures servers, run from an EC2 control node
+- **Security** → Trivy scans the built image (failing on fixable CRITICAL findings) before it is pushed and deployed
+- **Autoscaling** → Kubernetes HPA adjusts replicas based on load
+- **Users** → Access the live application via browser
 
 ---
 
-## 📂 Project Structure  
+## 📂 Project Structure
 
-### # Root  
-```
-peak/
+### Root
+
+```text
+peak-treks-devops/
 ├── app.py
 ├── booking_billing.py
 ├── booking_emails.py
@@ -80,186 +82,465 @@ peak/
 ├── requirements.txt
 ├── Dockerfile
 ├── Jenkinsfile
+├── payments.py
 ├── pytest.ini
+├── .env.example
+├── .dockerignore
+├── .gitignore
+├── architecture.png
+├── README.md
+├── data/
+├── helpers/
+├── routes/
+├── templates/
+├── static/
+├── tests/
+├── ansible/
+├── k8s/
+└── screenshots/
+```
+
+### data/
+
+```text
+data/
+├── __init__.py
+├── trek_catalog.py
 └── README.md
 ```
 
-### # helpers/  
-```
+### helpers/
+
+```text
 helpers/
+├── __init__.py
+├── README.md
 ├── shopping_cart.py
 ├── user_authentication.py
 └── user_notifications.py
 ```
 
-### # routes/  
-```
+### routes/
+
+```text
 routes/
+├── __init__.py
+├── README.md
 ├── trek_booking.py
 ├── user_authentication.py
 └── website_pages.py
 ```
 
-### # templates/  
-```
+### templates/
+
+```text
 templates/
+├── _trek_card.html
+├── 404.html
+├── about.html
+├── auth.html
 ├── base.html
-├── home.html
-├── trek_list.html
-├── trek_detail.html
+├── booking_confirmation.html
 ├── cart.html
 ├── checkout.html
-├── booking_confirmation.html
+├── contact.html
+├── email_booking_confirmation.html
+├── email_enquiry.html
+├── email_enquiry_ack.html
+├── home.html
 ├── my_bookings.html
-└── email_*.html
+├── trek_detail.html
+├── trek_list.html
+└── README.md
 ```
 
-### # static/  
-```
+### static/
+
+```text
 static/
+├── auth-signin.jpg
+├── auth-signup.jpg
+├── cta-book-trek.jpg
+├── error-404.jpg
 ├── home-hero.jpg
 ├── kudremukh.jpg
 ├── kumara-parvatha.jpg
-└── savandurga.png
+├── savandurga.png
+└── README.md
 ```
 
-### # tests/  
-```
+### tests/
+
+```text
 tests/
 └── test_app.py
 ```
 
-### # ansible/
-```
+### ansible/
+
+```text
 ansible/
 ├── inventory.ini
+├── README.md
 ├── setup-docker.yml
 ├── setup-jenkins.yml
 └── setup-k8s-prereqs.yml
-````
+```
 
 **Ansible Purpose:**
 
-* Automates server configuration
-* Playbooks included:
+- Automates server configuration
 
-  * `setup-docker.yml` → Installs Docker and dependencies
-  * `setup-jenkins.yml` → Configures the Jenkins server
-  * `setup-k8s-prereqs.yml` → Prepares nodes for Kubernetes deployment
-  * `inventory.ini` → Lists target hosts for the playbooks
+- Playbooks included:
 
-### # k8s/
-```
+  - `setup-docker.yml` → Installs Docker and Git (dnf-based host, `ec2-user`), starts and enables Docker, and lets `ec2-user` run Docker without sudo
+
+  - `setup-jenkins.yml` → Configures the Jenkins server (Ubuntu): installs Java 21, Jenkins, Docker, kubectl and Trivy, and lets the `jenkins` user run Docker
+
+  - `setup-k8s-prereqs.yml` → Prepares an Ubuntu node for kubeadm: turns swap off, loads kernel modules and network settings, installs containerd (systemd cgroup driver), kubelet, kubeadm and kubectl (v1.34 repository, versions held)
+
+  - `inventory.ini` → Lists target hosts for the playbooks (`docker-server`, `jenkins-server`, `k8s-server`)
+
+### k8s/
+
+```text
 k8s/
 ├── deployment.yml
 ├── service.yml
 ├── postgres.yml
 ├── db-init-job.yml
 ├── hpa.yml
-└── jenkins-rbac.yml
+├── jenkins-rbac.yml
+└── README.md
 ```
 
 **Kubernetes Purpose:**
 
-* Deploys and manages the PEAK application on the k3s cluster
-* Manifests included:
+- Deploys and manages the PEAK application on the Kubernetes cluster
 
-  * `deployment.yml` → Deploys the PEAK application
-  * `service.yml` → Exposes the PEAK application
-  * `postgres.yml` → Deploys the PostgreSQL database
-  * `db-init-job.yml` → Initializes the application database
-  * `hpa.yml` → Configures horizontal pod autoscaling for the PEAK application
-  * `jenkins-rbac.yml` → Grants Jenkins the permissions required to deploy to Kubernetes
+- Manifests included:
 
-## 🛠️ Setup  
+  - `deployment.yml` → Deploys the PEAK application (image pulled with `imagePullPolicy: Always`, configuration from the `peak-secrets` Secret, `/healthz` readiness and liveness probes, CPU request/limit 100m/500m, memory request/limit 128Mi/512Mi)
 
-### # Local Development  
+  - `service.yml` → Exposes the PEAK application as a NodePort service on port 30080
 
-1. **Clone the repository**  
+  - `postgres.yml` → Deploys PostgreSQL 16 with a PersistentVolumeClaim (`postgres-pvc`), so data survives pod restarts
+
+  - `db-init-job.yml` → Runs `prepare_database()` from the application image to initialize the database (retries up to 6 times)
+
+  - `hpa.yml` → Scales the PEAK deployment between 1 and 3 replicas at 60% average CPU utilization
+
+  - `jenkins-rbac.yml` → Grants Jenkins the permissions required to deploy to Kubernetes
+
+---
+
+## 🌐 Application Routes
+
+| Route | Methods | Purpose |
+|---|---|---|
+| `/` | GET | Home page |
+| `/treks` | GET | Trek catalog |
+| `/trek/<slug>` | GET | Trek details |
+| `/about` | GET | About page |
+| `/contact` | GET, POST | Contact and enquiry form |
+| `/notifications/open/<notif_id>` | GET | Open a notification |
+| `/signup` | GET, POST | User registration |
+| `/signin` | GET, POST | User login |
+| `/logout` | GET | Log out |
+| `/cart` | GET | View cart |
+| `/cart/add` | POST | Add a trek to the cart |
+| `/cart/update/<item_id>` | POST | Update a cart item |
+| `/cart/remove/<item_id>` | POST | Remove a cart item |
+| `/checkout` | GET, POST | Checkout with demo payment |
+| `/order/<order_id>/confirmation` | GET | Booking confirmation |
+| `/bookings` | GET | My bookings dashboard |
+| `/healthz` | GET | Health check used by Kubernetes probes |
+
+---
+
+## 🛠️ Setup
+
+### Prerequisites
+
+- **Python 3.12** and pip (the Dockerfile uses `python:3.12-slim`)
+
+- **Git**
+
+- **Docker**, to build and run the container image
+
+- **A Kubernetes cluster and `kubectl`**, for the Kubernetes deployment
+
+- **Ansible**, installed on an EC2 control node (Linux) with SSH access to the other servers, for server provisioning (Ansible does not run natively on Windows)
+
+- **AWS EC2 instances** for the Ansible control node and the servers defined in the Ansible inventory (`docker-server`, `jenkins-server` and `k8s-server`)
+
+- **A Docker Hub account**, for the CI/CD pipeline
+
+**EC2 security group ports** (adjust to your own setup):
+
+| Port | Used for |
+|---|---|
+| 22 | SSH access (Ansible control node to the other servers, and administration) |
+| 8080 | Jenkins web UI and the GitHub webhook |
+| 30080 | PEAK application (NodePort) |
+| 6443 | Kubernetes API, reachable from the Jenkins server so `kubectl` can deploy |
+
+### Local Development
+
+Local development uses **SQLite** by default, so PostgreSQL is not required.
+
+1. **Clone the repository**
+
    ```bash
    git clone https://github.com/prerana-ghub/peak-treks-devops.git
    cd peak-treks-devops
    ```
 
-2. **Create a virtual environment**  
+2. **Create and activate a virtual environment**
+
+   **Linux/macOS:**
    ```bash
    python3 -m venv .venv
    source .venv/bin/activate
    ```
 
-3. **Install dependencies**  
+   **Windows (PowerShell):**
+   ```powershell
+   python -m venv .venv
+   .venv\Scripts\Activate.ps1
+   ```
+
+3. **Install dependencies**
+
    ```bash
    pip install -r requirements.txt
    ```
 
-4. **Run the application**  
+4. **Configure environment variables**
+
+   Copy `.env.example` to `.env`:
+
+   **Windows (PowerShell):**
+   ```powershell
+   Copy-Item .env.example .env
+   ```
+
+   **Linux/macOS:**
+   ```bash
+   cp .env.example .env
+   ```
+
+   Open `.env` and configure the variables:
+
+   | Variable | Configuration |
+   |---|---|
+   | `SECRET_KEY` | Replace the placeholder with a randomly generated secret key. |
+   | `DATABASE_URL` | Keep `sqlite:///peak.db` for local development. |
+   | `MAIL_SERVER` | Keep `localhost` for local email testing, or use `smtp.gmail.com` for Gmail. |
+   | `MAIL_PORT` | Keep `1025` for local email testing, or use `587` for Gmail. |
+   | `MAIL_SENDER` | Keep the sample value for local testing or enter your sender address. |
+   | `MAIL_USERNAME` | Leave blank for local testing; enter your Gmail address when using Gmail. |
+   | `MAIL_PASSWORD` | Leave blank for local testing; enter your Gmail App Password when using Gmail. |
+   | `MAIL_USE_TLS` | Enabled by default. Set to `0` only when using the local debug SMTP server. |
+
+   Generate a Flask secret key:
+   ```bash
+   python -c "import secrets; print(secrets.token_hex(32))"
+   ```
+   Replace the placeholder in `.env` with the generated value.
+
+   **Email configuration is optional.** For local email testing, run a debug SMTP server in a separate terminal:
+   ```bash
+   pip install aiosmtpd
+   python -m aiosmtpd -n -l localhost:1025
+   ```
+   Add `MAIL_USE_TLS=0` to `.env` when using this local debug server.
+
+   To use Gmail instead, enable 2-Step Verification, generate a Google App Password, set `MAIL_SERVER` to `smtp.gmail.com` and `MAIL_PORT` to `587`, then enter your Gmail address and App Password in `MAIL_USERNAME` and `MAIL_PASSWORD`. STARTTLS is enabled by default.
+
+5. **Run the application**
+
    ```bash
    python app.py
    ```
-   Access via Flask dev server at `http://localhost:5000`.
+   The application prepares the database and starts the Flask development server at `http://localhost:5000`.
 
-5. **Run tests**  
+   > **macOS note:** If port 5000 is already in use, the AirPlay Receiver may be occupying it. Disable it under **System Settings → General → AirDrop & Handoff**, or run the app on a different port.
+
+6. **Run tests**
+
    ```bash
    pytest
    ```
+   The test suite covers public pages, the `/healthz` endpoint, billing calculations, authentication, and static assets. Jenkins runs the same tests inside the built image.
 
 ---
-
-### # Docker Setup
+### Docker Setup
 
 1. **Build the image**
+
    ```bash
    docker build -t peak .
    ```
 
-2. **Run the container** (needs a secret key and a database URL)
+2. **Run the container**
+
+   The container needs a secret key and a database URL. The example below uses a PostgreSQL database, which must be running and reachable from the container. Gunicorn does not run `prepare_database()` (the app only calls it when started with `python app.py`), so initialize the tables once first. This is the same command the Kubernetes `db-init` job runs:
+
    ```bash
+   docker run --rm \
+     -e SECRET_KEY=your-secret-key \
+     -e DATABASE_URL=postgresql://user:password@host:5432/peak \
+     peak python -c "from app import app, prepare_database; app.app_context().push(); prepare_database()"
    docker run -p 5000:5000 \
      -e SECRET_KEY=your-secret-key \
      -e DATABASE_URL=postgresql://user:password@host:5432/peak \
      peak
    ```
 
-3. **Push to Docker Hub** (after login)
+   For a quick test without PostgreSQL, you can use SQLite inside the container instead (data is lost when the container is removed):
+
+   ```bash
+   docker run -p 5000:5000 \
+     -e SECRET_KEY=your-secret-key \
+     -e DATABASE_URL=sqlite:///peak.db \
+     peak sh -c "python -c 'from app import app, prepare_database; app.app_context().push(); prepare_database()' && gunicorn --bind 0.0.0.0:5000 app:app"
+   ```
+
+   The container runs the app with Gunicorn, bound to `0.0.0.0:5000`, as a non-root user.
+
+3. **Push to Docker Hub** (after `docker login`)
+
    ```bash
    docker tag peak <your-dockerhub-username>/peak:v1
    docker push <your-dockerhub-username>/peak:v1
    ```
 
 ---
+### Kubernetes Deployment
 
-### # Kubernetes Deployment  
+These steps assume a running kubeadm-based Kubernetes cluster with `kubectl` configured. The Jenkins pipeline publishes to `preranasseshadri/peak`. If you forked this project, change `IMAGE` in the `Jenkinsfile` and the image in `k8s/deployment.yml` and `k8s/db-init-job.yml` to your own Docker Hub image.
 
-1. **Apply manifests**  
+The manifests are applied manually once. After that, Jenkins only updates the image with `kubectl set image deployment/peak peak=<image>:<tag>`, so the Deployment and its container must both be named `peak`.
+
+**Cluster notes (kubeadm):**
+
+- `setup-k8s-prereqs.yml` only prepares the node (swap, kernel settings, containerd, kubeadm packages). Initializing the cluster with `kubeadm init` and installing a pod network (CNI) plugin are separate steps; on a single-node cluster, also remove the control-plane taint so application pods can be scheduled.
+
+- kubeadm does not install a default StorageClass, so `postgres-pvc` needs a storage provisioner or a matching PersistentVolume to bind.
+
+- kubeadm does not install metrics-server, which the HPA needs.
+
+1. **Create the application secret**
+
+   The application needs its configuration at runtime. Create a Kubernetes Secret instead of hardcoding values in the manifests:
+
+   ```bash
+   kubectl create secret generic peak-secrets \
+     --from-literal=SECRET_KEY=<your-secret-key> \
+     --from-literal=DATABASE_URL=postgresql://peak:<password>@postgres:5432/peak \
+     --from-literal=POSTGRES_PASSWORD=<password> \
+     --from-literal=MAIL_USERNAME=<your-gmail-address> \
+     --from-literal=MAIL_PASSWORD=<your-gmail-app-password>
+   ```
+
+   - `k8s/postgres.yml` creates the database user `peak` and database `peak`, and reads `POSTGRES_PASSWORD` from this Secret. The password in `DATABASE_URL` must be the same.
+
+   - Every key in this Secret is loaded into the app as an environment variable.
+
+   - Emails are only delivered if real Gmail credentials are provided. When `MAIL_USERNAME` is set, the app defaults to `smtp.gmail.com:587` with TLS; without it, it falls back to `localhost:1025`, where no mail server runs in the cluster.
+
+2. **Deploy PostgreSQL and wait until it is ready**
+
    ```bash
    kubectl apply -f k8s/postgres.yml
+   kubectl wait --for=condition=ready pod -l app=postgres --timeout=120s
+   ```
+
+3. **Initialize the database**
+
+   ```bash
    kubectl apply -f k8s/db-init-job.yml
+   kubectl wait --for=condition=complete job/peak-db-init --timeout=120s
+   ```
+
+   The job retries up to 6 times if Postgres is not ready yet.
+
+   Jenkins deployments only update the image and do not re-run this job. If a release changes the database models, delete and re-apply it:
+
+   ```bash
+   kubectl delete job peak-db-init
+   kubectl apply -f k8s/db-init-job.yml
+   ```
+
+4. **Deploy the application, service and autoscaler**
+
+   ```bash
    kubectl apply -f k8s/deployment.yml
    kubectl apply -f k8s/service.yml
    kubectl apply -f k8s/hpa.yml
    ```
 
-2. **Check pods**  
+   The HPA scales the `peak` deployment between 1 and 3 replicas at 60% average CPU, and needs metrics-server installed (see the cluster notes above). The deployment uses `/healthz` for its readiness and liveness probes.
+
+5. **(CI/CD only) Grant Jenkins deploy permissions**
+
+   Needed only if Jenkins deploys to this cluster:
+
    ```bash
-   kubectl get pods
+   kubectl apply -f k8s/jenkins-rbac.yml
    ```
 
-3. **Access service**  
-   Expose via LoadBalancer or NodePort depending on cluster setup.  
+6. **Check pods and access the service**
+
+   ```bash
+   kubectl get pods
+   kubectl get svc
+   ```
+
+   `peak-service` is a NodePort service, so open the application at `http://<node-public-ip>:30080`. On AWS EC2, make sure the security group allows inbound TCP traffic on port 30080.
+
+---
+### Server Provisioning with Ansible
+
+Run these from the Ansible control node (an EC2 instance) with SSH access to the other servers. The inventory defines `docker-server`, `jenkins-server` and `k8s-server`; the Jenkins and Kubernetes servers are Ubuntu hosts (`ansible_user=ubuntu`), while the Docker playbook uses `dnf` and `ec2-user`. Edit `ansible/inventory.ini` with your own hosts, then run the playbooks as needed:
+
+```bash
+ansible-playbook -i ansible/inventory.ini ansible/setup-docker.yml
+ansible-playbook -i ansible/inventory.ini ansible/setup-jenkins.yml
+ansible-playbook -i ansible/inventory.ini ansible/setup-k8s-prereqs.yml
+```
 
 ---
 
-## 🎯 Project Goal  
+### Jenkins Setup
 
-PEAK is a **hands‑on showcase of DevOps practices**:  
+After provisioning the Jenkins server:
 
-- End‑to‑end CI/CD automation  
-- Secure, containerized deployments  
-- Cloud-based infrastructure using AWS EC2 and Ansible  
-- Scalable orchestration with Kubernetes   
+1. Add these credentials in Jenkins (**Manage Jenkins → Credentials**), using these exact IDs:
 
----
+   - `dockerhub-creds` → **Username with password** (Docker Hub username and password/access token)
 
-## 📸 Visuals  
+   - `kubeconfig` → **Secret file** (kubeconfig for the Kubernetes cluster, using the `jenkins-deployer` service account token created by `k8s/jenkins-rbac.yml`; make sure the server address in it is reachable from the Jenkins server)
 
-Screenshots and diagrams are available in the `screenshots/` folder
+2. `setup-jenkins.yml` installs Java 21, Jenkins, Docker, kubectl and Trivy, and adds the `jenkins` user to the `docker` group. If you set Jenkins up another way, make sure all of these are available.
+
+3. Create a **Pipeline** job from SCM pointing to this repository so it uses the `Jenkinsfile` in the repo root, and enable the GitHub hook trigger.
+
+4. Add a GitHub webhook pointing to `http://<jenkins-host>:8080/github-webhook/` so each push starts a build.
+
+5. Apply `k8s/jenkins-rbac.yml` so Jenkins can update the deployment.
+
+### **Pipeline stages:**
+
+1. **Checkout** → pulls the code from GitHub
+2. **Build Docker Image** → tags the image with the build number and `latest`
+3. **Test** → runs `pytest` inside the built image (in-memory SQLite)
+4. **Security Scan** → Trivy fails the build on fixable CRITICAL vulnerabilities
+5. **Push to Docker Hub** → pushes both tags
+6. **Deploy to Kubernetes** → updates the `peak` deployment and waits up to 180s for the rollout
+
+
+## 📸 Visuals
+
+Screenshots and diagrams are available in the `screenshots/` folder.
