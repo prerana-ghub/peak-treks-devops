@@ -161,7 +161,7 @@ Needs **Python 3.12** and **Git**. Local development uses **SQLite** by default,
 
 ## 📸 Screenshots
 
-Screenshots and diagrams are in the `screenshots/` folder.
+Screenshots are in the `screenshots/` folder.
 
 <!-- Add 2 or 3 images here, using your real file names, for example:
 ![Jenkins pipeline](screenshots/jenkins-pipeline.png)
